@@ -1,0 +1,35 @@
+# dependencies
+node_modules/
+**/node_modules/
+
+# build output
+dist/
+build/
+web/dist/
+server/dist/
+
+# env
+.env
+*.local
+
+# database (SQLite dev)
+*.db
+*.db-journal
+server/prisma/*.db
+server/prisma/*.db-journal
+
+# logs
+*.log
+npm-debug.log*
+
+# editor / os
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# prisma generated client
+server/src/generated/
+
+# graphify oto-hafıza — çalışma anında üretilen tüm artefaktlar (dağıtımda gerekmez).
+graphify-out/

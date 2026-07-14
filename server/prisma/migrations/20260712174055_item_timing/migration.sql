@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "OrderItem" ADD COLUMN "prepSeconds" INTEGER;
+ALTER TABLE "OrderItem" ADD COLUMN "readyAt" DATETIME;
+ALTER TABLE "OrderItem" ADD COLUMN "servedAt" DATETIME;
+ALTER TABLE "OrderItem" ADD COLUMN "startedAt" DATETIME;

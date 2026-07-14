@@ -1,0 +1,25 @@
+{
+  "name": "flow-rms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FLOW - Yerel ağda çalışan Restoran Yönetim Sistemi",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "setup": "npm install && node scripts/setup-env.mjs && npm run db:setup:prod -w server && npm run build",
+    "start": "npm run start:prod -w server",
+    "build": "npm run build -w server && npm run build -w web",
+    "dev": "concurrently -n server,web,graph -c blue,green,magenta \"npm run dev -w server\" \"npm run dev -w web\" \"npm run graph:watch\"",
+    "dev:server": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "db:setup": "npm run db:setup -w server",
+    "graph:watch": "graphify watch .",
+    "graph:index": "graphify update . --force",
+    "graph:hooks": "graphify hook install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

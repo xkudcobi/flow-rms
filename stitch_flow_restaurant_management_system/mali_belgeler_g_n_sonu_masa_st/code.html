@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Financial Summary - Gün Sonu</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#001947",
+                        "on-primary-fixed-variant": "#474747",
+                        "surface-container": "#eeeeee",
+                        "on-tertiary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "background": "#f9f9f9",
+                        "tertiary-container": "#00210d",
+                        "tertiary-fixed-dim": "#5ede8b",
+                        "on-surface-variant": "#4c4546",
+                        "outline": "#7e7576",
+                        "on-surface": "#1a1c1c",
+                        "inverse-primary": "#c6c6c6",
+                        "inverse-on-surface": "#f1f1f1",
+                        "on-primary-container": "#848484",
+                        "secondary-container": "#256df0",
+                        "secondary-fixed": "#dae2ff",
+                        "on-error-container": "#93000a",
+                        "surface": "#f9f9f9",
+                        "primary-fixed": "#e2e2e2",
+                        "primary-fixed-dim": "#c6c6c6",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed-variant": "#00419f",
+                        "inverse-surface": "#2f3131",
+                        "on-tertiary-container": "#009850",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-fixed": "#00210d",
+                        "tertiary": "#000000",
+                        "on-secondary-container": "#fefcff",
+                        "error": "#ba1a1a",
+                        "on-primary": "#ffffff",
+                        "outline-variant": "#cfc4c5",
+                        "surface-variant": "#e2e2e2",
+                        "on-tertiary-fixed-variant": "#005229",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed-dim": "#b1c5ff",
+                        "surface-container-highest": "#e2e2e2",
+                        "surface-container-high": "#e8e8e8",
+                        "surface-tint": "#5e5e5e",
+                        "surface-dim": "#dadada",
+                        "surface-container-low": "#f3f3f3",
+                        "on-background": "#1a1c1c",
+                        "secondary": "#0054cb",
+                        "primary-container": "#1b1b1b",
+                        "tertiary-fixed": "#7cfca5",
+                        "surface-bright": "#f9f9f9",
+                        "primary": "#000000",
+                        "on-primary-fixed": "#1b1b1b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "xl": "48px",
+                        "base": "4px",
+                        "xs": "8px",
+                        "lg": "32px",
+                        "container-margin": "24px",
+                        "gutter": "16px",
+                        "sm": "16px",
+                        "md": "24px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "title-lg": ["Inter"],
+                        "mono-data": ["monospace"],
+                        "label-md": ["Inter"],
+                        "headline-lg-mobile": ["Outfit"],
+                        "headline-lg": ["Outfit"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Outfit"],
+                        "display-lg": ["Outfit"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "title-lg": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "mono-data": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Outfit:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen">
+<!-- SideNavBar -->
+<nav class="bg-primary dark:bg-primary-container text-on-primary dark:text-on-primary-container fixed left-0 top-0 h-full w-[280px] border-r border-outline-variant flex flex-col h-full py-md z-50">
+<div class="px-md pb-xl">
+<h1 class="font-display-lg text-display-lg font-bold text-on-primary tracking-tighter">FLOW</h1>
+<p class="font-label-md text-label-md text-on-primary-container mt-xs">Restaurant Management</p>
+</div>
+<div class="flex-1 overflow-y-auto w-full">
+<ul class="flex flex-col w-full">
+<li class="w-full">
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 hover:bg-surface-container-highest opacity-90 transition-all font-label-md text-label-md w-full" href="#">
+<span class="material-symbols-outlined mr-sm text-[20px]">table_restaurant</span>
+<span>Salon Planı</span>
+</a>
+</li>
+<li class="w-full">
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 hover:bg-surface-container-highest opacity-90 transition-all font-label-md text-label-md w-full" href="#">
+<span class="material-symbols-outlined mr-sm text-[20px]">chef_hat</span>
+<span>Mutfak</span>
+</a>
+</li>
+<li class="w-full">
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 hover:bg-surface-container-highest opacity-90 transition-all font-label-md text-label-md w-full" href="#">
+<span class="material-symbols-outlined mr-sm text-[20px]">menu_book</span>
+<span>Menü</span>
+</a>
+</li>
+<li class="w-full">
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 hover:bg-surface-container-highest opacity-90 transition-all font-label-md text-label-md w-full" href="#">
+<span class="material-symbols-outlined mr-sm text-[20px]">inventory_2</span>
+<span>Stok</span>
+</a>
+</li>
+<li class="w-full">
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 hover:bg-surface-container-highest opacity-90 transition-all font-label-md text-label-md w-full" href="#">
+<span class="material-symbols-outlined mr-sm text-[20px]">shopping_cart</span>
+<span>Alışlar</span>
+</a>
+</li>
+<li class="w-full">
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 hover:bg-surface-container-highest opacity-90 transition-all font-label-md text-label-md w-full" href="#">
+<span class="material-symbols-outlined mr-sm text-[20px]">account_balance_wallet</span>
+<span>Cari</span>
+</a>
+</li>
+<li class="w-full">
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 hover:bg-surface-container-highest opacity-90 transition-all font-label-md text-label-md w-full" href="#">
+<span class="material-symbols-outlined mr-sm text-[20px]">receipt_long</span>
+<span>Adisyonlar</span>
+</a>
+</li>
+<li class="w-full">
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 hover:bg-surface-container-highest opacity-90 transition-all font-label-md text-label-md w-full" href="#">
+<span class="material-symbols-outlined mr-sm text-[20px]">description</span>
+<span>Mali Belgeler</span>
+</a>
+</li>
+<li class="w-full">
+<a class="flex items-center px-md py-sm bg-secondary-container text-on-secondary-container font-bold border-l-4 border-secondary opacity-90 transition-all font-label-md text-label-md w-full" href="#">
+<span class="material-symbols-outlined mr-sm text-[20px]">event_available</span>
+<span>Gün Sonu</span>
+</a>
+</li>
+<li class="w-full">
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 hover:bg-surface-container-highest opacity-90 transition-all font-label-md text-label-md w-full" href="#">
+<span class="material-symbols-outlined mr-sm text-[20px]">group</span>
+<span>Kullanıcılar</span>
+</a>
+</li>
+</ul>
+</div>
+<div class="px-md pt-lg mt-auto w-full">
+<button class="bg-primary-container text-on-primary w-full py-sm rounded px-sm font-label-md text-label-md flex justify-center items-center hover:bg-surface-container-highest transition-colors">
+                New Order
+            </button>
+<div class="mt-lg flex items-center border-t border-outline-variant pt-md">
+<img alt="FLOW Admin Profile" class="w-[32px] h-[32px] rounded-full object-cover mr-sm bg-surface-variant" data-alt="A clean, minimalist 3D rendering of an abstract human profile avatar in crisp white and cool light blue tones, suggesting a professional administrator profile picture, soft studio lighting, ultra high definition." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC6AFio24RBSPwFj1yhP3MlQoRi7qQdDf0DhEqFW5PQgvvVCciS4vIk5ajHlZpkEJyUoU5yKbAgzl8h3EhSqDt594MwVPCxV7timQeXaD3QTqogoV7ZxqMJ62rBfpnNqzB7XQLKvLd7VazB9zXsZ0Ga9QBkjjC61wn8TF3bG7FJTHnY_0uyiJR9Jf51XvF22-S07u7o9OzxPpOWvqAX9zP37GTTqUdcbxT96HJuUPNezaP97XoHP4Ij"/>
+<span class="font-label-md text-label-md text-on-primary">Admin</span>
+</div>
+</div>
+</nav>
+<!-- TopNavBar -->
+<header class="bg-surface dark:bg-surface-dim text-primary dark:text-on-surface fixed top-0 right-0 w-[calc(100%-280px)] h-16 bg-surface border-b border-outline-variant flex items-center justify-between px-lg w-full z-40">
+<div class="flex-1 flex items-center">
+<div class="relative w-64">
+<span class="material-symbols-outlined absolute left-sm top-1/2 transform -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+<input class="w-full bg-surface-container pl-[36px] pr-sm py-[6px] rounded border border-outline-variant focus:border-primary focus:border-2 focus:outline-none font-body-md text-body-md text-on-surface hover:text-primary transition-colors focus:border-primary 2px h-[32px]" placeholder="Search..." type="text"/>
+</div>
+</div>
+<div class="flex items-center space-x-md">
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">help_outline</span>
+</button>
+<div class="h-[24px] w-[1px] bg-outline-variant"></div>
+<img alt="Administrator User Avatar" class="w-[32px] h-[32px] rounded-full object-cover bg-surface-variant" data-alt="A clean, minimalist 3D rendering of an abstract human profile avatar in crisp white and cool light blue tones, suggesting a professional administrator profile picture, soft studio lighting, ultra high definition." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQ5G2iZ4tSBC-OgWJMb03mgm20EhTFYmoAGRdrWaP17oCzt-fNyEY1fuqCekEVxCQB_4NgH_BWVIq3ZBnvhjY6Z9FNlA49OmQa0lyDSQxG8mBNoxASD46V-T5g1tmBe24rytM5U3bvy40XZNabpsdYJv71hPCT0Qh048_DMFCmuIkCRkR3dSEjpoPX9Jm1Oi3P1-XMpcg2gHp6ypOTNqCJjCNMuzOmnphxy4McTXUobMyNYGTBFdqz"/>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-[280px] mt-16 p-lg bg-background min-h-[calc(100vh-64px)]">
+<!-- Header & Primary Action -->
+<div class="flex justify-between items-end mb-xl border-b border-outline-variant pb-md">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-primary tracking-tight">Gün Sonu</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-base">Daily Financial Summary &amp; Close</p>
+</div>
+<button class="bg-[#276EF1] text-[#ffffff] px-lg py-sm rounded font-label-md text-label-md hover:opacity-90 transition-opacity flex items-center h-[44px]">
+<span class="material-symbols-outlined mr-xs text-[18px]">lock_clock</span>
+                Günü Kapat
+            </button>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-gutter">
+<!-- Key Metrics Strip (Top) -->
+<div class="col-span-12 grid grid-cols-4 gap-gutter mb-sm">
+<!-- Total Revenue -->
+<div class="bg-surface p-md rounded border border-outline-variant flex flex-col justify-between h-[120px]">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase">Total Revenue</span>
+<div class="flex items-baseline">
+<span class="font-display-lg text-display-lg text-primary">₺24,500</span>
+<span class="font-mono-data text-mono-data text-tertiary-fixed-dim ml-sm">+12%</span>
+</div>
+</div>
+<!-- Transactions -->
+<div class="bg-surface p-md rounded border border-outline-variant flex flex-col justify-between h-[120px]">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase">Transactions</span>
+<div class="flex items-baseline">
+<span class="font-headline-md text-headline-md text-primary">142</span>
+</div>
+</div>
+<!-- Avg Ticket -->
+<div class="bg-surface p-md rounded border border-outline-variant flex flex-col justify-between h-[120px]">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase">Avg Ticket</span>
+<div class="flex items-baseline">
+<span class="font-headline-md text-headline-md text-primary">₺172.50</span>
+</div>
+</div>
+<!-- Cash in Drawer -->
+<div class="bg-surface p-md rounded border border-outline-variant flex flex-col justify-between h-[120px]">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase">Cash Drawer Target</span>
+<div class="flex items-baseline">
+<span class="font-headline-md text-headline-md text-primary">₺4,200</span>
+</div>
+</div>
+</div>
+<!-- Main Chart Area (Left) -->
+<div class="col-span-8 bg-surface p-md rounded border border-outline-variant h-[400px] flex flex-col">
+<div class="flex justify-between items-center mb-md">
+<h3 class="font-title-lg text-title-lg text-primary">Hourly Revenue</h3>
+<div class="flex space-x-xs">
+<div class="flex items-center"><div class="w-3 h-3 bg-primary mr-base rounded-[2px]"></div><span class="font-label-md text-label-md text-on-surface-variant">Today</span></div>
+<div class="flex items-center"><div class="w-3 h-3 bg-outline-variant mr-base rounded-[2px]"></div><span class="font-label-md text-label-md text-on-surface-variant">Yesterday</span></div>
+</div>
+</div>
+<!-- Placeholder for Chart -->
+<div class="flex-1 w-full bg-surface-container-low rounded border border-outline-variant flex items-center justify-center relative overflow-hidden">
+<!-- Faux Bar Chart Lines -->
+<div class="absolute bottom-0 left-0 w-full h-[80%] flex items-end justify-between px-lg opacity-80">
+<div class="w-[8%] bg-primary h-[20%]"></div>
+<div class="w-[8%] bg-primary h-[30%]"></div>
+<div class="w-[8%] bg-primary h-[50%]"></div>
+<div class="w-[8%] bg-primary h-[80%]"></div>
+<div class="w-[8%] bg-primary h-[100%]"></div>
+<div class="w-[8%] bg-primary h-[60%]"></div>
+<div class="w-[8%] bg-primary h-[90%]"></div>
+<div class="w-[8%] bg-primary h-[40%]"></div>
+</div>
+</div>
+</div>
+<!-- Payment Breakdown (Right) -->
+<div class="col-span-4 bg-surface p-md rounded border border-outline-variant h-[400px] flex flex-col">
+<h3 class="font-title-lg text-title-lg text-primary mb-md">Payment Methods</h3>
+<div class="flex-1 flex flex-col justify-center space-y-lg">
+<!-- Card -->
+<div>
+<div class="flex justify-between mb-xs">
+<span class="font-label-md text-label-md text-on-surface">Credit Card</span>
+<span class="font-mono-data text-mono-data text-primary">₺18,500</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded overflow-hidden">
+<div class="bg-[#276EF1] h-full" style="width: 75%"></div>
+</div>
+<p class="font-label-md text-label-md text-on-surface-variant mt-base text-right">75%</p>
+</div>
+<!-- Cash -->
+<div>
+<div class="flex justify-between mb-xs">
+<span class="font-label-md text-label-md text-on-surface">Cash</span>
+<span class="font-mono-data text-mono-data text-primary">₺4,200</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded overflow-hidden">
+<div class="bg-tertiary-fixed-dim h-full" style="width: 17%"></div>
+</div>
+<p class="font-label-md text-label-md text-on-surface-variant mt-base text-right">17%</p>
+</div>
+<!-- Other -->
+<div>
+<div class="flex justify-between mb-xs">
+<span class="font-label-md text-label-md text-on-surface">Voucher/Other</span>
+<span class="font-mono-data text-mono-data text-primary">₺1,800</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded overflow-hidden">
+<div class="bg-primary-fixed h-full" style="width: 8%"></div>
+</div>
+<p class="font-label-md text-label-md text-on-surface-variant mt-base text-right">8%</p>
+</div>
+</div>
+</div>
+<!-- Data Table (Bottom Full Width) -->
+<div class="col-span-12 bg-surface rounded border border-outline-variant mt-sm overflow-hidden">
+<div class="p-md border-b border-outline-variant flex justify-between items-center">
+<h3 class="font-title-lg text-title-lg text-primary">Recent Transactions</h3>
+<button class="text-secondary hover:underline font-label-md text-label-md">View All</button>
+</div>
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-background">
+<th class="font-label-md text-label-md text-[#666666] py-sm px-md uppercase tracking-wider">Time</th>
+<th class="font-label-md text-label-md text-[#666666] py-sm px-md uppercase tracking-wider">Invoice ID</th>
+<th class="font-label-md text-label-md text-[#666666] py-sm px-md uppercase tracking-wider">Table/Type</th>
+<th class="font-label-md text-label-md text-[#666666] py-sm px-md uppercase tracking-wider">Method</th>
+<th class="font-label-md text-label-md text-[#666666] py-sm px-md uppercase tracking-wider text-right">Amount</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md">
+<!-- Rows -->
+<tr class="border-t border-outline-variant hover:bg-[#F6F6F6] transition-colors">
+<td class="py-sm px-md text-on-surface-variant">22:45</td>
+<td class="py-sm px-md font-mono-data text-primary">INV-4029</td>
+<td class="py-sm px-md text-on-surface">Table 12</td>
+<td class="py-sm px-md">
+<span class="bg-secondary-fixed text-on-secondary-fixed-variant px-xs py-base rounded-[2px] font-label-md text-[10px]">CARD</span>
+</td>
+<td class="py-sm px-md font-mono-data text-primary text-right">₺840.00</td>
+</tr>
+<tr class="border-t border-[#F6F6F6] hover:bg-[#F6F6F6] transition-colors">
+<td class="py-sm px-md text-on-surface-variant">22:30</td>
+<td class="py-sm px-md font-mono-data text-primary">INV-4028</td>
+<td class="py-sm px-md text-on-surface">Takeaway</td>
+<td class="py-sm px-md">
+<span class="bg-[#FFF3E0] text-[#E65100] px-xs py-base rounded-[2px] font-label-md text-[10px]">CASH</span>
+</td>
+<td class="py-sm px-md font-mono-data text-primary text-right">₺210.50</td>
+</tr>
+<tr class="border-t border-[#F6F6F6] hover:bg-[#F6F6F6] transition-colors">
+<td class="py-sm px-md text-on-surface-variant">22:15</td>
+<td class="py-sm px-md font-mono-data text-primary">INV-4027</td>
+<td class="py-sm px-md text-on-surface">Table 04</td>
+<td class="py-sm px-md">
+<span class="bg-secondary-fixed text-on-secondary-fixed-variant px-xs py-base rounded-[2px] font-label-md text-[10px]">CARD</span>
+</td>
+<td class="py-sm px-md font-mono-data text-primary text-right">₺1,250.00</td>
+</tr>
+<tr class="border-t border-[#F6F6F6] hover:bg-[#F6F6F6] transition-colors">
+<td class="py-sm px-md text-on-surface-variant">22:00</td>
+<td class="py-sm px-md font-mono-data text-primary">INV-4026</td>
+<td class="py-sm px-md text-on-surface">Table 09</td>
+<td class="py-sm px-md">
+<span class="bg-secondary-fixed text-on-secondary-fixed-variant px-xs py-base rounded-[2px] font-label-md text-[10px]">CARD</span>
+</td>
+<td class="py-sm px-md font-mono-data text-primary text-right">₺675.00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</main>
+</body></html>

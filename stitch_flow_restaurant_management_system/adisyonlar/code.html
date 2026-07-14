@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Adisyonlar</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&amp;family=Inter:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#000000",
+                        "secondary-fixed-dim": "#b1c5ff",
+                        "secondary-container": "#256df0",
+                        "surface-container-low": "#f3f3f3",
+                        "tertiary-fixed": "#7cfca5",
+                        "tertiary-fixed-dim": "#5ede8b",
+                        "inverse-on-surface": "#f1f1f1",
+                        "surface-container-highest": "#e2e2e2",
+                        "surface-bright": "#f9f9f9",
+                        "on-secondary-container": "#fefcff",
+                        "inverse-primary": "#c6c6c6",
+                        "outline-variant": "#cfc4c5",
+                        "surface-container": "#eeeeee",
+                        "secondary": "#0054cb",
+                        "surface-dim": "#dadada",
+                        "on-background": "#1a1c1c",
+                        "on-error": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-fixed-variant": "#474747",
+                        "on-surface-variant": "#4c4546",
+                        "inverse-surface": "#2f3131",
+                        "on-error-container": "#93000a",
+                        "on-secondary-fixed-variant": "#00419f",
+                        "on-tertiary-container": "#009850",
+                        "primary-fixed-dim": "#c6c6c6",
+                        "surface": "#f9f9f9",
+                        "on-secondary-fixed": "#001947",
+                        "on-tertiary-fixed-variant": "#005229",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#00210d",
+                        "surface-container-high": "#e8e8e8",
+                        "secondary-fixed": "#dae2ff",
+                        "primary-fixed": "#e2e2e2",
+                        "surface-variant": "#e2e2e2",
+                        "on-surface": "#1a1c1c",
+                        "background": "#f9f9f9",
+                        "on-secondary": "#ffffff",
+                        "tertiary": "#000000",
+                        "error": "#ba1a1a",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "on-primary-container": "#848484",
+                        "on-primary-fixed": "#1b1b1b",
+                        "tertiary-container": "#00210d",
+                        "primary-container": "#1b1b1b",
+                        "surface-tint": "#5e5e5e",
+                        "outline": "#7e7576"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "sm": "16px",
+                        "base": "4px",
+                        "xs": "8px",
+                        "md": "24px",
+                        "gutter": "16px",
+                        "lg": "32px",
+                        "xl": "48px",
+                        "container-margin": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Outfit"],
+                        "body-lg": ["Inter"],
+                        "headline-lg-mobile": ["Outfit"],
+                        "mono-data": ["monospace"],
+                        "title-lg": ["Inter"],
+                        "headline-md": ["Outfit"],
+                        "display-lg": ["Outfit"],
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "mono-data": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "title-lg": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #F6F6F6; } /* High contrast background */
+        .card-hover:hover {
+            border-color: #000000;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-lg flex h-screen overflow-hidden">
+<!-- NavigationDrawer (JSON Component) -->
+<nav class="bg-surface dark:bg-primary hidden lg:flex flex-col pt-20 border-r border-outline-variant dark:border-primary-container flat no shadows fixed left-0 top-0 h-full w-[280px]">
+<div class="px-md mb-lg">
+<h2 class="font-label-md text-label-md uppercase tracking-widest text-on-surface-variant">SYSTEM MANAGEMENT</h2>
+</div>
+<div class="flex-1 overflow-y-auto space-y-base">
+<a class="text-on-surface-variant dark:text-outline-variant flex items-center gap-xs px-md py-sm hover:bg-surface-container dark:hover:bg-primary-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span>
+<span class="font-body-md text-body-md">Floor Plan</span>
+</a>
+<a class="text-on-surface-variant dark:text-outline-variant flex items-center gap-xs px-md py-sm hover:bg-surface-container dark:hover:bg-primary-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="chef_hat">chef_hat</span>
+<span class="font-body-md text-body-md">Kitchen</span>
+</a>
+<a class="text-on-surface-variant dark:text-outline-variant flex items-center gap-xs px-md py-sm hover:bg-surface-container dark:hover:bg-primary-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="restaurant_menu">restaurant_menu</span>
+<span class="font-body-md text-body-md">Menu</span>
+</a>
+<a class="text-on-surface-variant dark:text-outline-variant flex items-center gap-xs px-md py-sm hover:bg-surface-container dark:hover:bg-primary-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+<span class="font-body-md text-body-md">Inventory</span>
+</a>
+<a class="text-on-surface-variant dark:text-outline-variant flex items-center gap-xs px-md py-sm hover:bg-surface-container dark:hover:bg-primary-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="shopping_cart">shopping_cart</span>
+<span class="font-body-md text-body-md">Purchases</span>
+</a>
+<a class="text-on-surface-variant dark:text-outline-variant flex items-center gap-xs px-md py-sm hover:bg-surface-container dark:hover:bg-primary-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="font-body-md text-body-md">Ledger</span>
+</a>
+<!-- Active State -->
+<a class="bg-primary text-on-primary dark:bg-on-primary dark:text-primary flex items-center gap-xs px-md py-sm rounded-none border-l-4 border-secondary transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+<span class="font-body-md text-body-md">Orders</span>
+</a>
+<a class="text-on-surface-variant dark:text-outline-variant flex items-center gap-xs px-md py-sm hover:bg-surface-container dark:hover:bg-primary-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-body-md text-body-md">Financials</span>
+</a>
+<a class="text-on-surface-variant dark:text-outline-variant flex items-center gap-xs px-md py-sm hover:bg-surface-container dark:hover:bg-primary-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="history_toggle_off">history_toggle_off</span>
+<span class="font-body-md text-body-md">End of Day</span>
+</a>
+<a class="text-on-surface-variant dark:text-outline-variant flex items-center gap-xs px-md py-sm hover:bg-surface-container dark:hover:bg-primary-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-body-md text-body-md">Users</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col ml-0 lg:ml-[280px] h-full overflow-hidden">
+<!-- TopAppBar (JSON Component) -->
+<header class="bg-surface dark:bg-primary border-b border-outline-variant dark:border-primary-container flat no shadows flex justify-between items-center px-lg h-20 w-full z-40 docked full-width top-0">
+<div class="flex items-center gap-sm">
+<button class="lg:hidden text-primary dark:text-on-primary hover:bg-surface-container dark:hover:bg-primary-container transition-colors p-xs rounded cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<h1 class="font-headline-lg text-headline-lg font-black tracking-tighter text-primary dark:text-on-primary">FLOW</h1>
+</div>
+<div class="flex items-center cursor-pointer active:opacity-80">
+<div class="w-10 h-10 rounded-full bg-surface-container overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A clean, professional headshot of a restaurant manager with a neutral expression, well-lit in a modern setting. Minimalist corporate aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbjL8bMvcPY4jswAQGX1yX2Hjm_vr1pWwkMzm21SOewAf33S2witT3fDBc17ww8qB9b3dOetb4-HZ-eWrEv4KHUvIgorhTvCFzbW_-YZPqEHuG0V1KUUEUzgGV473FK5PW-DaSihMT_s1b_Ki8x0ZFRCJ2AcyE1C1UR6VnokIWy9W301qGdb_C4V12L36a7vATjtmQNdwISTAx6q8vmvDfuokfV9qmuHN85Z9dG-SuEEKHW-nyDTUK"/>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<div class="flex-1 overflow-y-auto p-gutter lg:p-lg pb-24 lg:pb-lg">
+<div class="flex justify-between items-end mb-lg">
+<h2 class="font-headline-md text-headline-md text-primary">ADİSYONLAR</h2>
+<div class="font-mono-data text-mono-data text-on-surface-variant">
+                    12 Active • 45m Avg
+                </div>
+</div>
+<!-- Bento Grid / Active Orders -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-sm">
+<!-- Order Card 1 -->
+<div class="bg-surface-container-lowest border border-surface-container p-md rounded-lg flex flex-col gap-md transition-all card-hover group">
+<div class="flex justify-between items-start">
+<div>
+<div class="font-label-md text-label-md text-on-surface-variant mb-base">TABLE 12</div>
+<div class="font-title-lg text-title-lg text-primary">Server: Alex M.</div>
+</div>
+<div class="bg-surface-container-high px-xs py-base rounded flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant" data-icon="schedule">schedule</span>
+<span class="font-mono-data text-mono-data text-on-surface-variant">42m</span>
+</div>
+</div>
+<div class="flex-1">
+<ul class="space-y-xs font-body-md text-body-md text-on-surface">
+<li class="flex justify-between"><span>2x Wagyu Burger</span> <span>₺640</span></li>
+<li class="flex justify-between"><span>1x Truffle Fries</span> <span>₺180</span></li>
+<li class="flex justify-between"><span>2x Craft Cola</span> <span>₺120</span></li>
+</ul>
+</div>
+<div class="pt-sm border-t border-surface-container flex items-end justify-between">
+<div>
+<div class="font-label-md text-label-md text-on-surface-variant mb-base">TOTAL</div>
+<div class="font-headline-md text-headline-md text-primary">₺940</div>
+</div>
+<button class="bg-[#276EF1] hover:bg-secondary text-on-secondary font-label-md text-label-md px-md py-sm rounded transition-colors uppercase tracking-wider">
+                            Ödeme Al
+                        </button>
+</div>
+</div>
+<!-- Order Card 2 -->
+<div class="bg-surface-container-lowest border border-surface-container p-md rounded-lg flex flex-col gap-md transition-all card-hover group">
+<div class="flex justify-between items-start">
+<div>
+<div class="font-label-md text-label-md text-on-surface-variant mb-base">TABLE 04</div>
+<div class="font-title-lg text-title-lg text-primary">Server: Sarah K.</div>
+</div>
+<div class="bg-error-container text-on-error-container px-xs py-base rounded flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]" data-icon="schedule">schedule</span>
+<span class="font-mono-data text-mono-data">1h 15m</span>
+</div>
+</div>
+<div class="flex-1">
+<ul class="space-y-xs font-body-md text-body-md text-on-surface">
+<li class="flex justify-between"><span>1x Ribeye Steak</span> <span>₺1250</span></li>
+<li class="flex justify-between"><span>1x Caesar Salad</span> <span>₺280</span></li>
+<li class="flex justify-between"><span>1x Red Wine (Glass)</span> <span>₺350</span></li>
+<li class="flex justify-between text-on-surface-variant italic"><span>Modifier: Med Rare</span> <span></span></li>
+</ul>
+</div>
+<div class="pt-sm border-t border-surface-container flex items-end justify-between">
+<div>
+<div class="font-label-md text-label-md text-on-surface-variant mb-base">TOTAL</div>
+<div class="font-headline-md text-headline-md text-primary">₺1880</div>
+</div>
+<button class="bg-[#276EF1] hover:bg-secondary text-on-secondary font-label-md text-label-md px-md py-sm rounded transition-colors uppercase tracking-wider">
+                            Ödeme Al
+                        </button>
+</div>
+</div>
+<!-- Order Card 3 -->
+<div class="bg-surface-container-lowest border border-surface-container p-md rounded-lg flex flex-col gap-md transition-all card-hover group">
+<div class="flex justify-between items-start">
+<div>
+<div class="font-label-md text-label-md text-on-surface-variant mb-base">BAR 01</div>
+<div class="font-title-lg text-title-lg text-primary">Server: Dave L.</div>
+</div>
+<div class="bg-surface-container-high px-xs py-base rounded flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant" data-icon="schedule">schedule</span>
+<span class="font-mono-data text-mono-data text-on-surface-variant">12m</span>
+</div>
+</div>
+<div class="flex-1">
+<ul class="space-y-xs font-body-md text-body-md text-on-surface">
+<li class="flex justify-between"><span>3x Local Draft</span> <span>₺450</span></li>
+<li class="flex justify-between"><span>1x Nachos</span> <span>₺320</span></li>
+</ul>
+</div>
+<div class="pt-sm border-t border-surface-container flex items-end justify-between">
+<div>
+<div class="font-label-md text-label-md text-on-surface-variant mb-base">TOTAL</div>
+<div class="font-headline-md text-headline-md text-primary">₺770</div>
+</div>
+<button class="bg-[#276EF1] hover:bg-secondary text-on-secondary font-label-md text-label-md px-md py-sm rounded transition-colors uppercase tracking-wider">
+                            Ödeme Al
+                        </button>
+</div>
+</div>
+<!-- Order Card 4 -->
+<div class="bg-surface-container-lowest border border-surface-container p-md rounded-lg flex flex-col gap-md transition-all card-hover group">
+<div class="flex justify-between items-start">
+<div>
+<div class="font-label-md text-label-md text-on-surface-variant mb-base">TABLE 08</div>
+<div class="font-title-lg text-title-lg text-primary">Server: Alex M.</div>
+</div>
+<div class="bg-surface-container-high px-xs py-base rounded flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant" data-icon="schedule">schedule</span>
+<span class="font-mono-data text-mono-data text-on-surface-variant">28m</span>
+</div>
+</div>
+<div class="flex-1">
+<ul class="space-y-xs font-body-md text-body-md text-on-surface">
+<li class="flex justify-between"><span>2x Margherita Pizza</span> <span>₺600</span></li>
+<li class="flex justify-between"><span>2x Lemonade</span> <span>₺180</span></li>
+</ul>
+</div>
+<div class="pt-sm border-t border-surface-container flex items-end justify-between">
+<div>
+<div class="font-label-md text-label-md text-on-surface-variant mb-base">TOTAL</div>
+<div class="font-headline-md text-headline-md text-primary">₺780</div>
+</div>
+<button class="bg-[#276EF1] hover:bg-secondary text-on-secondary font-label-md text-label-md px-md py-sm rounded transition-colors uppercase tracking-wider">
+                            Ödeme Al
+                        </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (JSON Component - Mobile Only) -->
+<nav class="fixed bottom-0 left-0 w-full lg:hidden h-16 bg-surface dark:bg-primary flex justify-around items-center border-t border-outline-variant dark:border-primary-container flat no shadows z-50">
+<a class="text-on-surface-variant dark:text-outline-variant flex flex-col items-center justify-center h-full flex-1 hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span>
+</a>
+<a class="text-on-surface-variant dark:text-outline-variant flex flex-col items-center justify-center h-full flex-1 hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="chef_hat">chef_hat</span>
+</a>
+<a class="text-on-surface-variant dark:text-outline-variant flex flex-col items-center justify-center h-full flex-1 hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="restaurant_menu">restaurant_menu</span>
+</a>
+<a class="text-secondary flex flex-col items-center justify-center border-t-2 border-secondary h-full flex-1" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+</a>
+<a class="text-on-surface-variant dark:text-outline-variant flex flex-col items-center justify-center h-full flex-1 hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="more_horiz">more_horiz</span>
+</a>
+</nav>
+</body></html>

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+
+<html class="light" lang="tr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Salon Planı - FLOW</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Outfit:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#001947",
+                        "on-primary-fixed-variant": "#474747",
+                        "surface-container": "#eeeeee",
+                        "on-tertiary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "background": "#f9f9f9",
+                        "tertiary-container": "#00210d",
+                        "tertiary-fixed-dim": "#5ede8b",
+                        "on-surface-variant": "#4c4546",
+                        "outline": "#7e7576",
+                        "on-surface": "#1a1c1c",
+                        "inverse-primary": "#c6c6c6",
+                        "inverse-on-surface": "#f1f1f1",
+                        "on-primary-container": "#848484",
+                        "secondary-container": "#256df0",
+                        "secondary-fixed": "#dae2ff",
+                        "on-error-container": "#93000a",
+                        "surface": "#f9f9f9",
+                        "primary-fixed": "#e2e2e2",
+                        "primary-fixed-dim": "#c6c6c6",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed-variant": "#00419f",
+                        "inverse-surface": "#2f3131",
+                        "on-tertiary-container": "#009850",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-fixed": "#00210d",
+                        "tertiary": "#000000",
+                        "on-secondary-container": "#fefcff",
+                        "error": "#ba1a1a",
+                        "on-primary": "#ffffff",
+                        "outline-variant": "#cfc4c5",
+                        "surface-variant": "#e2e2e2",
+                        "on-tertiary-fixed-variant": "#005229",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed-dim": "#b1c5ff",
+                        "surface-container-highest": "#e2e2e2",
+                        "surface-container-high": "#e8e8e8",
+                        "surface-tint": "#5e5e5e",
+                        "surface-dim": "#dadada",
+                        "surface-container-low": "#f3f3f3",
+                        "on-background": "#1a1c1c",
+                        "secondary": "#0054cb",
+                        "primary-container": "#1b1b1b",
+                        "tertiary-fixed": "#7cfca5",
+                        "surface-bright": "#f9f9f9",
+                        "primary": "#000000",
+                        "on-primary-fixed": "#1b1b1b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "xl": "48px",
+                        "base": "4px",
+                        "xs": "8px",
+                        "lg": "32px",
+                        "container-margin": "24px",
+                        "gutter": "16px",
+                        "sm": "16px",
+                        "md": "24px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "title-lg": ["Inter"],
+                        "mono-data": ["monospace"],
+                        "label-md": ["Inter"],
+                        "headline-lg-mobile": ["Outfit"],
+                        "headline-lg": ["Outfit"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Outfit"],
+                        "display-lg": ["Outfit"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "title-lg": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "mono-data": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen overflow-hidden">
+<!-- SideNavBar -->
+<nav class="bg-primary dark:bg-primary-container text-on-primary dark:text-on-primary-container fixed left-0 top-0 h-full w-[280px] border-r border-outline-variant flex flex-col py-md z-50">
+<div class="px-md mb-xl">
+<h1 class="font-display-lg text-display-lg font-bold text-on-primary tracking-tighter">FLOW</h1>
+<p class="font-label-md text-label-md text-on-primary-fixed-variant mt-base uppercase">Restaurant Management</p>
+</div>
+<ul class="flex flex-col flex-grow gap-base px-sm overflow-y-auto">
+<li>
+<a class="flex items-center gap-sm px-sm py-xs bg-secondary-container text-on-secondary-container font-bold border-l-4 border-secondary rounded-DEFAULT transition-all opacity-90" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">table_restaurant</span>
+<span class="font-label-md text-label-md">Salon Planı</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-xs text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined">chef_hat</span>
+<span class="font-label-md text-label-md">Mutfak</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-xs text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="font-label-md text-label-md">Menü</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-xs text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-label-md text-label-md">Stok</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-xs text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span class="font-label-md text-label-md">Alışlar</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-xs text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span class="font-label-md text-label-md">Cari</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-xs text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-label-md text-label-md">Adisyonlar</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-xs text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-label-md text-label-md">Mali Belgeler</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-xs text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined">event_available</span>
+<span class="font-label-md text-label-md">Gün Sonu</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-xs text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200 rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">Kullanıcılar</span>
+</a>
+</li>
+</ul>
+<div class="px-md mt-auto pt-lg">
+<button class="w-full bg-surface text-primary font-label-md text-label-md py-xs rounded-DEFAULT flex items-center justify-center gap-xs hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined">add</span>
+                New Order
+            </button>
+<div class="flex items-center gap-sm mt-lg">
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A highly detailed close-up portrait of a professional administrative user. Clean, well-lit, corporate modern aesthetic. High contrast black and white styling with a subtle blue accent in the background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4KbzfPhGLtmIC2H75PCzMtQmY7ZhYeN1RwDgf__aleiDHiWh28h9NSkDv_fCQbA43NOMTBGV2GOYBTdT9B3_cNQKhRJgY9cbrYIt67eOqQ4MlXDWRJH-tLhi-_6CZ9K2PHbiv9gQA4pGI1nIf3uvQkDkGijZS3NtLKYsUqOOdZY3y2GUi-DRiMMUKUzJ2PGP_Fxx0JhzenRsLvj3--voxW-jHFXQn7UY3-KnyN3S1SPz3OrSmo1Gl"/>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-primary">Admin User</span>
+<span class="font-label-md text-[10px] text-on-primary-fixed-variant">Administrator</span>
+</div>
+</div>
+</div>
+</nav>
+<!-- TopNavBar -->
+<header class="bg-surface dark:bg-surface-dim text-primary dark:text-on-surface fixed top-0 right-0 w-[calc(100%-280px)] h-16 bg-surface border-b border-outline-variant flex items-center justify-between px-lg z-40">
+<div class="flex items-center gap-md">
+<h2 class="font-title-lg text-title-lg">Salon Planı</h2>
+</div>
+<div class="flex items-center gap-lg w-full max-w-md">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-DEFAULT py-xs pl-xl pr-sm font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:border-2 transition-all" placeholder="Search tables, orders..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<button class="text-on-surface-variant hover:text-primary transition-colors p-xs rounded-DEFAULT hover:bg-surface-container-highest">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-xs rounded-DEFAULT hover:bg-surface-container-highest">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="ml-[280px] mt-16 p-lg h-[calc(100vh-64px)] overflow-y-auto bg-surface-container-lowest">
+<!-- Summary Stats Bar -->
+<div class="flex gap-md mb-lg">
+<div class="bg-surface border border-outline-variant rounded-DEFAULT p-sm flex-1 flex flex-col gap-xs">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase">Total Tables</span>
+<span class="font-headline-md text-headline-md text-on-surface">48</span>
+</div>
+<div class="bg-secondary-fixed border border-secondary-fixed-dim rounded-DEFAULT p-sm flex-1 flex flex-col gap-xs">
+<span class="font-label-md text-label-md text-on-secondary-fixed-variant uppercase">Occupied</span>
+<div class="flex items-end justify-between">
+<span class="font-headline-md text-headline-md text-on-secondary-fixed">24</span>
+<span class="font-mono-data text-mono-data text-on-secondary-fixed-variant">50%</span>
+</div>
+</div>
+<div class="bg-surface-container-low border border-outline-variant rounded-DEFAULT p-sm flex-1 flex flex-col gap-xs">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase">Available</span>
+<span class="font-headline-md text-headline-md text-on-surface">18</span>
+</div>
+<div class="bg-error-container border border-outline-variant rounded-DEFAULT p-sm flex-1 flex flex-col gap-xs">
+<span class="font-label-md text-label-md text-on-error-container uppercase">Reserved</span>
+<span class="font-headline-md text-headline-md text-on-error-container">6</span>
+</div>
+</div>
+<!-- Section Filters -->
+<div class="flex gap-sm mb-lg border-b border-outline-variant pb-xs">
+<button class="font-label-md text-label-md text-primary font-bold px-sm py-xs border-b-2 border-primary">Main Dining</button>
+<button class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors px-sm py-xs">Terrace</button>
+<button class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors px-sm py-xs">Bar Area</button>
+</div>
+<!-- Table Grid -->
+<div class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-md">
+<!-- Table: Occupied -->
+<div class="aspect-square bg-secondary text-on-secondary border-2 border-secondary rounded-full flex flex-col items-center justify-center p-sm cursor-pointer hover:opacity-90 transition-opacity shadow-[0px_4px_12px_rgba(0,0,0,0.08)]">
+<span class="font-title-lg text-title-lg">T1</span>
+<span class="font-mono-data text-[10px] mt-xs">45m</span>
+<span class="font-label-md text-[10px] uppercase mt-base">₺450</span>
+</div>
+<div class="aspect-square bg-secondary text-on-secondary border-2 border-secondary rounded-DEFAULT flex flex-col items-center justify-center p-sm cursor-pointer hover:opacity-90 transition-opacity shadow-[0px_4px_12px_rgba(0,0,0,0.08)]">
+<span class="font-title-lg text-title-lg">T2</span>
+<span class="font-mono-data text-[10px] mt-xs">1h 15m</span>
+<span class="font-label-md text-[10px] uppercase mt-base">₺1200</span>
+</div>
+<!-- Table: Available -->
+<div class="aspect-square bg-surface border border-outline-variant rounded-full flex flex-col items-center justify-center p-sm cursor-pointer hover:border-primary transition-colors">
+<span class="font-title-lg text-title-lg text-on-surface">T3</span>
+<span class="font-label-md text-[10px] text-on-surface-variant mt-xs">4 seats</span>
+</div>
+<div class="aspect-square bg-surface border border-outline-variant rounded-DEFAULT flex flex-col items-center justify-center p-sm cursor-pointer hover:border-primary transition-colors">
+<span class="font-title-lg text-title-lg text-on-surface">T4</span>
+<span class="font-label-md text-[10px] text-on-surface-variant mt-xs">6 seats</span>
+</div>
+<!-- Table: Reserved -->
+<div class="aspect-square bg-error-container text-on-error-container border border-outline-variant rounded-full flex flex-col items-center justify-center p-sm cursor-pointer hover:opacity-90 transition-opacity">
+<span class="font-title-lg text-title-lg">T5</span>
+<span class="font-label-md text-[10px] mt-xs uppercase">Rsv: 19:30</span>
+</div>
+<!-- Occupied -->
+<div class="aspect-square bg-secondary text-on-secondary border-2 border-secondary rounded-full flex flex-col items-center justify-center p-sm cursor-pointer hover:opacity-90 transition-opacity shadow-[0px_4px_12px_rgba(0,0,0,0.08)]">
+<span class="font-title-lg text-title-lg">T6</span>
+<span class="font-mono-data text-[10px] mt-xs">12m</span>
+<span class="font-label-md text-[10px] uppercase mt-base">₺150</span>
+</div>
+<!-- Available -->
+<div class="aspect-square bg-surface border border-outline-variant rounded-full flex flex-col items-center justify-center p-sm cursor-pointer hover:border-primary transition-colors">
+<span class="font-title-lg text-title-lg text-on-surface">T7</span>
+<span class="font-label-md text-[10px] text-on-surface-variant mt-xs">2 seats</span>
+</div>
+<div class="aspect-square bg-surface border border-outline-variant rounded-DEFAULT flex flex-col items-center justify-center p-sm cursor-pointer hover:border-primary transition-colors">
+<span class="font-title-lg text-title-lg text-on-surface">T8</span>
+<span class="font-label-md text-[10px] text-on-surface-variant mt-xs">8 seats</span>
+</div>
+<!-- Gap for aisle -->
+<div class="col-span-4 md:col-span-6 lg:col-span-8 h-sm"></div>
+<!-- More Tables -->
+<div class="aspect-square bg-surface border border-outline-variant rounded-DEFAULT flex flex-col items-center justify-center p-sm cursor-pointer hover:border-primary transition-colors">
+<span class="font-title-lg text-title-lg text-on-surface">T9</span>
+<span class="font-label-md text-[10px] text-on-surface-variant mt-xs">4 seats</span>
+</div>
+<div class="aspect-square bg-secondary text-on-secondary border-2 border-secondary rounded-DEFAULT flex flex-col items-center justify-center p-sm cursor-pointer hover:opacity-90 transition-opacity shadow-[0px_4px_12px_rgba(0,0,0,0.08)]">
+<span class="font-title-lg text-title-lg">T10</span>
+<span class="font-mono-data text-[10px] mt-xs">2h 05m</span>
+<span class="font-label-md text-[10px] uppercase mt-base">₺3400</span>
+</div>
+<div class="aspect-square bg-surface border border-outline-variant rounded-full flex flex-col items-center justify-center p-sm cursor-pointer hover:border-primary transition-colors">
+<span class="font-title-lg text-title-lg text-on-surface">T11</span>
+<span class="font-label-md text-[10px] text-on-surface-variant mt-xs">2 seats</span>
+</div>
+<div class="aspect-square bg-surface border border-outline-variant rounded-full flex flex-col items-center justify-center p-sm cursor-pointer hover:border-primary transition-colors">
+<span class="font-title-lg text-title-lg text-on-surface">T12</span>
+<span class="font-label-md text-[10px] text-on-surface-variant mt-xs">2 seats</span>
+</div>
+<!-- Large Table / Booth -->
+<div class="col-span-2 aspect-[2/1] bg-surface border border-outline-variant rounded-DEFAULT flex flex-col items-center justify-center p-sm cursor-pointer hover:border-primary transition-colors">
+<span class="font-title-lg text-title-lg text-on-surface">B1 (Booth)</span>
+<span class="font-label-md text-[10px] text-on-surface-variant mt-xs">6 seats</span>
+</div>
+<div class="col-span-2 aspect-[2/1] bg-error-container text-on-error-container border border-outline-variant rounded-DEFAULT flex flex-col items-center justify-center p-sm cursor-pointer hover:opacity-90 transition-opacity">
+<span class="font-title-lg text-title-lg">B2 (Booth)</span>
+<span class="font-label-md text-[10px] mt-xs uppercase">Rsv: 20:00 VIP</span>
+</div>
+</div>
+</main>
+</body></html>

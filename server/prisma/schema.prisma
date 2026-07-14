@@ -1,0 +1,483 @@
+// FLOW - Restoran Yönetim Sistemi - Prisma şeması
+// Geliştirme: SQLite. Üretimde Postgres'e geçiş için provider = "postgresql" yapın
+// ve DATABASE_URL'i güncelleyin. Enum kullanılmadı (SQLite uyumu + taşınabilirlik);
+// rol/durum alanları String olarak tutulur, geçerli değerler kod tarafında sabittir.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// --- Kullanıcı & Yetki -------------------------------------------------------
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  fullName  String
+  password  String // bcrypt hash
+  // Rol: PATRON | MUDUR | KASIYER | GARSON | MUTFAK
+  role      String   @default("GARSON")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --- Menü --------------------------------------------------------------------
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String
+  sortOrder Int       @default(0)
+  color     String? // salon/adisyon UI için renk kodu
+  active    Boolean   @default(true)
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  name        String
+  price       Float
+  categoryId  String
+  category    Category  @relation(fields: [categoryId], references: [id])
+  // Ürünün yönlendirileceği hazırlık istasyonu: MUTFAK | BAR | IZGARA | TATLI
+  station     String    @default("MUTFAK")
+  sortOrder   Int       @default(0)
+  active      Boolean   @default(true)
+  imageUrl    String?
+  orderItems  OrderItem[]
+  recipeItems RecipeItem[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([categoryId])
+}
+
+// --- Stok & Reçete (M7) ------------------------------------------------------
+
+model StockItem {
+  id            String          @id @default(cuid())
+  name          String
+  // Birim: adet | kg | gr | lt | ml
+  unit          String          @default("adet")
+  quantity      Float           @default(0)
+  criticalLevel Float           @default(0)
+  cost          Float           @default(0) // son alış birim maliyeti (KDV hariç)
+  active        Boolean         @default(true)
+  recipeItems   RecipeItem[]
+  movements     StockMovement[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+// Bir ürünün reçetesi: bir porsiyon satılınca düşülecek hammadde miktarları.
+model RecipeItem {
+  id          String    @id @default(cuid())
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  stockItemId String
+  stockItem   StockItem @relation(fields: [stockItemId], references: [id])
+  quantity    Float
+
+  @@index([productId])
+  @@index([stockItemId])
+}
+
+model StockMovement {
+  id          String    @id @default(cuid())
+  stockItemId String
+  stockItem   StockItem @relation(fields: [stockItemId], references: [id])
+  // Tür: GIRIS | CIKIS | FIRE | SAYIM
+  type        String
+  // İşaretli değişim (stok += quantity). GIRIS +, CIKIS/FIRE -, SAYIM fark.
+  quantity    Float
+  note        String?
+  orderId     String?
+  createdById String?
+  createdAt   DateTime  @default(now())
+
+  @@index([stockItemId])
+  @@index([createdAt])
+}
+
+// --- Salon & Masa ------------------------------------------------------------
+
+model Floor {
+  id        String            @id @default(cuid())
+  name      String // İç Salon, Bahçe, Teras...
+  sortOrder Int               @default(0)
+  tables    RestaurantTable[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+}
+
+model RestaurantTable {
+  id        String   @id @default(cuid())
+  name      String // "12", "B3"...
+  floorId   String
+  floor     Floor    @relation(fields: [floorId], references: [id])
+  seats     Int      @default(4)
+  posX      Int      @default(0) // salon planı konumu
+  posY      Int      @default(0)
+  // Durum: BOS | DOLU | ODENDI | REZERVE
+  status       String        @default("BOS")
+  qrToken      String? // masaya özel QR self-servis anahtarı (kod tarafında benzersiz üretilir)
+  orders       Order[]
+  reservations Reservation[]
+  waiterCalls  WaiterCall[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([floorId])
+}
+
+// QR'dan "garson çağır" / "hesap iste"
+model WaiterCall {
+  id        String          @id @default(cuid())
+  tableId   String
+  table     RestaurantTable @relation(fields: [tableId], references: [id])
+  // Tür: GARSON | HESAP
+  type      String
+  // Durum: BEKLIYOR | KARSILANDI
+  status    String          @default("BEKLIYOR")
+  createdAt DateTime        @default(now())
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Kasa oturumu (açılış-kapanış + nakit sayım farkı)
+model CashSession {
+  id          String    @id @default(cuid())
+  openedById  String
+  openingCash Float     @default(0)
+  openedAt    DateTime  @default(now())
+  closedById  String?
+  countedCash Float?
+  variance    Float? // sayılan - beklenen (+ fazla, - eksik/açık)
+  note        String?
+  // Durum: ACIK | KAPANDI
+  status      String    @default("ACIK")
+  closedAt    DateTime?
+
+  @@index([status])
+  @@index([openedAt])
+}
+
+// Personel vardiya planı (haftalık program)
+model Shift {
+  id        String   @id @default(cuid())
+  userId    String
+  userName  String // snapshot (görüntüleme için)
+  date      DateTime // vardiya günü (yerel gün başı)
+  startTime String // "09:00"
+  endTime   String // "17:00"
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}
+
+// Denetim kaydı: iptal/iskonto/ikram gibi kayba yol açabilecek işlemler
+model AuditLog {
+  id         String   @id @default(cuid())
+  // Aksiyon: IPTAL_ADISYON | IPTAL_KALEM | ISKONTO | IKRAM
+  action     String
+  userId     String?
+  userName   String?
+  tableName  String?
+  orderId    String?
+  amount     Float    @default(0)
+  detail     String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action])
+}
+
+// Kasadan nakit giriş/çıkış (gider, para üstü, tedarikçi ödeme, alış vb.)
+model CashMovement {
+  id          String   @id @default(cuid())
+  // Tür: GIRIS | CIKIS
+  type        String
+  amount      Float
+  // Kategori: ALIS | GIDER | PARA_USTU | TEDARIKCI_ODEME | PERSONEL | DIGER
+  category    String   @default("DIGER")
+  description String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// Yemek sonrası müşteri geri bildirimi (QR)
+model Feedback {
+  id        String   @id @default(cuid())
+  tableId   String?
+  rating    Int // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model Reservation {
+  id           String           @id @default(cuid())
+  tableId      String?
+  table        RestaurantTable? @relation(fields: [tableId], references: [id])
+  customerName String
+  phone        String?
+  partySize    Int              @default(2)
+  reservedAt   DateTime // rezervasyon tarih + saati
+  note         String?
+  // Durum: BEKLIYOR | GELDI | IPTAL | GELMEDI
+  status       String           @default("BEKLIYOR")
+  createdById  String?
+  createdAt    DateTime         @default(now())
+
+  @@index([reservedAt])
+  @@index([tableId])
+}
+
+// --- Sipariş / Adisyon --------------------------------------------------------
+
+model Order {
+  id         String    @id @default(cuid())
+  // Tür: MASA | PAKET | GELAL
+  type       String    @default("MASA")
+  // Durum: ACIK | KAPANDI | IPTAL
+  status     String    @default("ACIK")
+  tableId    String?
+  table      RestaurantTable? @relation(fields: [tableId], references: [id])
+  openedById String // siparişi açan kullanıcı
+  note       String?
+  // Birleştirilmiş masa etiketi (ör. "1 + 2"); tekil masada null
+  mergedLabel    String?
+  // İskonto: type YUZDE | TUTAR (ikram = %100 / tam tutar iskonto)
+  discountType   String?
+  discountValue  Float    @default(0)
+  discountReason String?
+  // Bahşiş: adisyon tutarından ayrı (ekstra para); personele dağıtım için tutulur.
+  tip            Float    @default(0)
+  // CRM: adisyona bağlı müşteri (opsiyonel).
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  items      OrderItem[]
+  payments   Payment[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  closedAt   DateTime?
+
+  @@index([tableId])
+  @@index([status])
+  @@index([customerId])
+}
+
+// İşletme ayarları (tekil satır, id="singleton"). Çalışma saatleri, iletişim,
+// serbest not — öngörü motoru ve AI asistan bağlamı için kullanılır.
+model BusinessSetting {
+  id           String   @id @default("singleton")
+  businessName String? // fiş/asistan için işletme adı
+  openHour     Int      @default(9) // açılış saati (0-23)
+  closeHour    Int      @default(23) // kapanış saati (0-24; gece yarısını geçerse >24 örn. 26=02:00)
+  openDays     String   @default("1,2,3,4,5,6,0") // açık günler (0=Pazar..6=Cumartesi), virgüllü
+  address      String?
+  phone        String?
+  note         String? // serbest işletme bilgisi (AI'a bağlam: konsept, hedef kitle, kampanya kuralları vb.)
+  // Google yorumları özeti (son senkronizasyondan)
+  reviewsRating   Float? // genel Google puanı
+  reviewsTotal    Int? // toplam Google yorum sayısı
+  reviewsSyncedAt DateTime?
+  updatedAt    DateTime @updatedAt
+}
+
+// Google (Places) yorumu — periyodik çekilir, yeni gelenler bildirime düşer.
+model GoogleReview {
+  id           String   @id // sabit anahtar (kaynak+zaman+yazar) — tekrar çekmede upsert
+  author       String
+  rating       Int
+  text         String
+  time         DateTime // yorumun tarihi
+  relativeTime String? // "2 hafta önce" gibi
+  profilePhoto String?
+  source       String   @default("google") // google | simulation
+  seen         Boolean  @default(false) // ekranda görüldü mü (bildirim rozeti için)
+  createdAt    DateTime @default(now())
+
+  @@index([time])
+  @@index([seen])
+}
+
+// CRM: müşteri veritabanı + sadakat. Ziyaret geçmişi Order(customerId) üzerinden türetilir.
+model Customer {
+  id            String    @id @default(cuid())
+  name          String
+  phone         String? // benzersizlik kod tarafında (migrate @unique takılıyor)
+  birthday      DateTime? // doğum günü (kampanya için)
+  note          String? // tercih/alerji/not
+  loyaltyPoints Int       @default(0)
+  totalSpent    Float     @default(0)
+  visitCount    Int       @default(0)
+  lastVisitAt   DateTime?
+  orders        Order[]
+  createdAt     DateTime  @default(now())
+
+  @@index([phone])
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id])
+  // Yöntem: NAKIT | KREDI_KARTI | YEMEK_KARTI | ACIK_HESAP
+  method      String
+  amount      Float
+  createdById String
+  createdAt   DateTime @default(now())
+
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+// --- Cari Hesap (M7b) --------------------------------------------------------
+
+model Account {
+  id           String               @id @default(cuid())
+  name         String
+  // Tür: MUSTERI | TEDARIKCI | PERSONEL
+  type         String               @default("MUSTERI")
+  phone        String?
+  note         String?
+  // Detaylı tedarikçi alanları (opsiyonel)
+  taxNumber    String? // vergi/TC no
+  taxOffice    String? // vergi dairesi
+  address      String?
+  email        String?
+  iban         String?
+  // Bakiye: + = cari bize borçlu (alacağımız), - = biz cariye borçluyuz
+  balance      Float                @default(0)
+  active       Boolean              @default(true)
+  transactions AccountTransaction[]
+  purchases    Purchase[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+}
+
+model AccountTransaction {
+  id          String   @id @default(cuid())
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id])
+  // Tür: BORC (cari borçlandı) | ALACAK (tahsilat/ödeme)
+  type        String
+  amount      Float
+  description String?
+  orderId     String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([accountId])
+  @@index([createdAt])
+}
+
+// --- Mali Fiş (ÖKC) & e-Belge (M5/M6) ---------------------------------------
+
+model FiscalReceipt {
+  id        String   @id @default(cuid())
+  orderId   String?
+  fiscalNo  String // ÖKC mali fiş no (simülasyonda üretilir)
+  zNo       String?
+  amount    Float
+  provider  String // simulation | gmp3
+  status    String   @default("OK") // OK | HATA
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// --- Alış / Gider (Satın Alma) ----------------------------------------------
+
+model Purchase {
+  id            String         @id @default(cuid())
+  supplierId    String?
+  supplier      Account?       @relation(fields: [supplierId], references: [id])
+  invoiceNo     String?
+  invoiceDate   DateTime       @default(now())
+  // Kategori: GIDA | ICECEK | TEMIZLIK | AMBALAJ | DEMIRBAS | GENEL_GIDER | DIGER
+  category      String?
+  note          String?
+  subtotal      Float          @default(0) // KDV hariç
+  vatTotal      Float          @default(0)
+  grandTotal    Float          @default(0) // KDV dahil
+  // Ödeme: PESIN | ACIK (veresiye → tedarikçi cariye borç)
+  paymentStatus String         @default("PESIN")
+  paymentMethod String? // NAKIT | KREDI_KARTI | HAVALE
+  createdById   String?
+  items         PurchaseItem[]
+  createdAt     DateTime       @default(now())
+
+  @@index([invoiceDate])
+  @@index([supplierId])
+}
+
+model PurchaseItem {
+  id          String   @id @default(cuid())
+  purchaseId  String
+  purchase    Purchase @relation(fields: [purchaseId], references: [id])
+  stockItemId String? // doluysa stoğa otomatik girer + maliyet güncellenir
+  name        String
+  quantity    Float
+  unit        String   @default("adet")
+  unitPrice   Float // KDV hariç birim fiyat
+  vatRate     Float    @default(0) // %
+  lineNet     Float // quantity * unitPrice
+  lineVat     Float
+  lineTotal   Float // net + KDV
+
+  @@index([purchaseId])
+}
+
+model EInvoice {
+  id        String   @id @default(cuid())
+  orderId   String?
+  accountId String?
+  uuid      String // ETTN benzeri tekil no
+  docType   String   @default("EARSIV") // EFATURA | EARSIV
+  // Durum: OLUSTURULDU | KUYRUKTA | GONDERILDI | HATA
+  status    String   @default("GONDERILDI")
+  total     Float
+  provider  String // simulation | entegrator
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id           String   @id @default(cuid())
+  orderId      String
+  order        Order    @relation(fields: [orderId], references: [id])
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id])
+  nameSnapshot String // sipariş anındaki ürün adı (menü değişse de sabit)
+  unitPrice    Float // sipariş anındaki fiyat
+  quantity     Int      @default(1)
+  note         String? // "az pişmiş", "ekstra peynir"...
+  station      String   @default("MUTFAK")
+  originLabel  String? // birleştirmede: kalemin hangi masadan geldiği
+  // Durum: YENI | HAZIRLANIYOR | HAZIR | SERVIS | IPTAL
+  status       String   @default("YENI")
+  // Mutfak zaman takibi
+  startedAt    DateTime? // HAZIRLANIYOR'a geçiş anı
+  readyAt      DateTime? // HAZIR'a geçiş anı
+  servedAt     DateTime? // SERVIS anı
+  prepSeconds  Int? // hazırlık süresi (startedAt → readyAt), saniye
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+}

@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: #f9f9f9; /* surface */
+  color: #1a1c1c; /* ink */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Başlıklar Outfit (geometrik, premium) — mevcut <h1..h3>'ler otomatik alır. */
+h1,
+h2,
+h3 {
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Sayısal veri hizası için yardımcı (rapor/tutar) */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Seçim rengi */
+::selection {
+  background: #dae2ff;
+  color: #00419f;
+}

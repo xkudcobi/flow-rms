@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+
+<html class="light" lang="tr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>FLOW - Mutfak Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Outfit:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#001947",
+                        "on-primary-fixed-variant": "#474747",
+                        "surface-container": "#eeeeee",
+                        "on-tertiary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "background": "#f9f9f9",
+                        "tertiary-container": "#00210d",
+                        "tertiary-fixed-dim": "#5ede8b",
+                        "on-surface-variant": "#4c4546",
+                        "outline": "#7e7576",
+                        "on-surface": "#1a1c1c",
+                        "inverse-primary": "#c6c6c6",
+                        "inverse-on-surface": "#f1f1f1",
+                        "on-primary-container": "#848484",
+                        "secondary-container": "#256df0",
+                        "secondary-fixed": "#dae2ff",
+                        "on-error-container": "#93000a",
+                        "surface": "#f9f9f9",
+                        "primary-fixed": "#e2e2e2",
+                        "primary-fixed-dim": "#c6c6c6",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed-variant": "#00419f",
+                        "inverse-surface": "#2f3131",
+                        "on-tertiary-container": "#009850",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-fixed": "#00210d",
+                        "tertiary": "#000000",
+                        "on-secondary-container": "#fefcff",
+                        "error": "#ba1a1a",
+                        "on-primary": "#ffffff",
+                        "outline-variant": "#cfc4c5",
+                        "surface-variant": "#e2e2e2",
+                        "on-tertiary-fixed-variant": "#005229",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed-dim": "#b1c5ff",
+                        "surface-container-highest": "#e2e2e2",
+                        "surface-container-high": "#e8e8e8",
+                        "surface-tint": "#5e5e5e",
+                        "surface-dim": "#dadada",
+                        "surface-container-low": "#f3f3f3",
+                        "on-background": "#1a1c1c",
+                        "secondary": "#0054cb",
+                        "primary-container": "#1b1b1b",
+                        "tertiary-fixed": "#7cfca5",
+                        "surface-bright": "#f9f9f9",
+                        "primary": "#000000",
+                        "on-primary-fixed": "#1b1b1b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "xl": "48px",
+                        "base": "4px",
+                        "xs": "8px",
+                        "lg": "32px",
+                        "container-margin": "24px",
+                        "gutter": "16px",
+                        "sm": "16px",
+                        "md": "24px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "title-lg": ["Inter"],
+                        "mono-data": ["monospace"],
+                        "label-md": ["Inter"],
+                        "headline-lg-mobile": ["Outfit"],
+                        "headline-lg": ["Outfit"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Outfit"],
+                        "display-lg": ["Outfit"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "title-lg": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "mono-data": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface font-body-md min-h-screen antialiased flex selection:bg-secondary selection:text-on-secondary">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-[280px] bg-primary dark:bg-primary-container text-on-primary dark:text-on-primary-container border-r border-outline-variant flex flex-col py-md z-50">
+<!-- Header -->
+<div class="px-md mb-lg">
+<h1 class="font-display-lg text-display-lg font-bold text-on-primary tracking-tighter">FLOW</h1>
+<p class="font-label-md text-label-md text-on-primary-container mt-xs uppercase tracking-wider">Restaurant Management</p>
+</div>
+<!-- Navigation Links -->
+<nav class="flex-1 overflow-y-auto w-full">
+<ul class="flex flex-col w-full">
+<li>
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-sm" style="font-variation-settings: 'FILL' 0;">table_restaurant</span>
+<span class="font-label-md text-label-md">Salon Planı</span>
+</a>
+</li>
+<li>
+<a class="flex items-center px-md py-sm bg-secondary-container text-on-secondary-container font-bold border-l-4 border-secondary opacity-90 transition-all" href="#">
+<span class="material-symbols-outlined mr-sm" style="font-variation-settings: 'FILL' 1;">chef_hat</span>
+<span class="font-label-md text-label-md">Mutfak</span>
+</a>
+</li>
+<li>
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-sm" style="font-variation-settings: 'FILL' 0;">menu_book</span>
+<span class="font-label-md text-label-md">Menü</span>
+</a>
+</li>
+<li>
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-sm" style="font-variation-settings: 'FILL' 0;">inventory_2</span>
+<span class="font-label-md text-label-md">Stok</span>
+</a>
+</li>
+<li>
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-sm" style="font-variation-settings: 'FILL' 0;">shopping_cart</span>
+<span class="font-label-md text-label-md">Alışlar</span>
+</a>
+</li>
+<li>
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-sm" style="font-variation-settings: 'FILL' 0;">account_balance_wallet</span>
+<span class="font-label-md text-label-md">Cari</span>
+</a>
+</li>
+<li>
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-sm" style="font-variation-settings: 'FILL' 0;">receipt_long</span>
+<span class="font-label-md text-label-md">Adisyonlar</span>
+</a>
+</li>
+<li>
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-sm" style="font-variation-settings: 'FILL' 0;">description</span>
+<span class="font-label-md text-label-md">Mali Belgeler</span>
+</a>
+</li>
+<li>
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-sm" style="font-variation-settings: 'FILL' 0;">event_available</span>
+<span class="font-label-md text-label-md">Gün Sonu</span>
+</a>
+</li>
+<li>
+<a class="flex items-center px-md py-sm text-on-primary-fixed-variant hover:text-on-primary hover:bg-primary-fixed-dim transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-sm" style="font-variation-settings: 'FILL' 0;">group</span>
+<span class="font-label-md text-label-md">Kullanıcılar</span>
+</a>
+</li>
+</ul>
+</nav>
+<!-- CTA -->
+<div class="px-md mt-auto">
+<button class="w-full bg-secondary text-on-secondary font-label-md text-label-md py-sm px-md rounded flex items-center justify-center transition-colors hover:bg-on-secondary-fixed-variant">
+<span class="material-symbols-outlined mr-xs">add</span>
+                New Order
+            </button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-[280px] flex-1 flex flex-col h-screen overflow-hidden">
+<!-- TopNavBar -->
+<header class="bg-surface border-b border-outline-variant h-16 flex items-center justify-between px-lg w-full flex-shrink-0 z-40">
+<div class="flex items-center">
+<h2 class="font-headline-md text-headline-md text-primary">Mutfak</h2>
+</div>
+<div class="flex items-center space-x-md">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="pl-xl pr-md py-xs bg-surface-container border border-outline-variant rounded text-body-md focus:border-primary focus:border-2 focus:ring-0 focus:outline-none transition-all w-64" placeholder="Search orders..." type="text"/>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-primary-fixed overflow-hidden border border-outline-variant">
+<img alt="Administrator User Avatar" class="w-full h-full object-cover" data-alt="A professional headshot of a restaurant administrator in a well-lit, modern office setting. The person is wearing smart-casual attire and has a friendly yet authoritative expression. The lighting is soft and bright, casting subtle shadows that highlight their features. The overall aesthetic is clean, corporate, and trustworthy." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_BX_EiuSs1gYzTRq3VRJxOwNCIzkggMMiHbZjUcgstQu9MEx25vWp7ywC2tsmpTfIFQv2FnHytARvqJK1gxA9PUNKFlQ3fFiQW2PnSZiDlbGuPZizpmf6zI8DRWgYr4RV266sTuVOq4NIC-kd1j5Y6wTnOiIwN_q8POm__yKdcv4rptHxmGmJJbPOdi8kygGTY9OxHi91BIeskRlrZAnUhuUM1vzqQ2OXQIQ3p94J9AQ-37P45NEh"/>
+</div>
+</div>
+</header>
+<!-- Kanban Board -->
+<div class="flex-1 overflow-x-auto overflow-y-hidden p-md bg-surface-container-low flex gap-md">
+<!-- Column: Pending -->
+<section class="flex flex-col min-w-[320px] max-w-[400px] flex-1 h-full bg-surface border border-outline-variant rounded">
+<header class="p-sm border-b border-outline-variant bg-surface-container flex justify-between items-center">
+<div class="flex items-center gap-xs">
+<h3 class="font-label-md text-label-md text-on-surface uppercase tracking-wider">Pending</h3>
+<span class="bg-surface-tint text-on-primary font-mono-data text-[10px] px-1 rounded">3</span>
+</div>
+<span class="material-symbols-outlined text-outline">more_horiz</span>
+</header>
+<div class="flex-1 overflow-y-auto p-sm flex flex-col gap-sm">
+<!-- Order Card -->
+<article class="bg-surface border border-outline-variant p-sm rounded hover:border-primary transition-colors cursor-grab">
+<div class="flex justify-between items-start mb-sm">
+<div>
+<span class="font-mono-data text-body-md font-bold text-primary">#1042</span>
+<span class="font-label-md text-label-md text-on-surface-variant ml-xs">Table 12</span>
+</div>
+<span class="font-mono-data text-label-md text-error flex items-center">
+<span class="material-symbols-outlined text-[14px] mr-1">timer</span> 12m
+                            </span>
+</div>
+<div class="space-y-xs">
+<div class="flex justify-between items-start">
+<span class="font-body-md text-on-surface">2x Margherita Pizza</span>
+<span class="font-label-md text-label-md bg-surface-container px-1 rounded text-on-surface-variant">Main</span>
+</div>
+<ul class="pl-md list-disc list-outside text-on-surface-variant font-label-md text-label-md space-y-1">
+<li>No basil</li>
+<li>Extra crispy</li>
+</ul>
+</div>
+<div class="mt-sm pt-sm border-t border-outline-variant flex justify-end">
+<button class="bg-secondary text-on-secondary font-label-md px-sm py-xs rounded hover:bg-on-secondary-fixed-variant transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">play_arrow</span> Start
+                            </button>
+</div>
+</article>
+<!-- Order Card -->
+<article class="bg-surface border border-outline-variant p-sm rounded hover:border-primary transition-colors cursor-grab">
+<div class="flex justify-between items-start mb-sm">
+<div>
+<span class="font-mono-data text-body-md font-bold text-primary">#1044</span>
+<span class="font-label-md text-label-md text-on-surface-variant ml-xs">Takeout</span>
+</div>
+<span class="font-mono-data text-label-md text-on-surface-variant flex items-center">
+<span class="material-symbols-outlined text-[14px] mr-1">timer</span> 4m
+                            </span>
+</div>
+<div class="space-y-xs">
+<div class="flex justify-between items-start">
+<span class="font-body-md text-on-surface">1x Caesar Salad</span>
+<span class="font-label-md text-label-md bg-surface-container px-1 rounded text-on-surface-variant">Starter</span>
+</div>
+<ul class="pl-md list-disc list-outside text-on-surface-variant font-label-md text-label-md space-y-1">
+<li>Dressing on side</li>
+</ul>
+<div class="flex justify-between items-start mt-2">
+<span class="font-body-md text-on-surface">1x Grilled Salmon</span>
+<span class="font-label-md text-label-md bg-surface-container px-1 rounded text-on-surface-variant">Main</span>
+</div>
+</div>
+<div class="mt-sm pt-sm border-t border-outline-variant flex justify-end">
+<button class="bg-secondary text-on-secondary font-label-md px-sm py-xs rounded hover:bg-on-secondary-fixed-variant transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">play_arrow</span> Start
+                            </button>
+</div>
+</article>
+</div>
+</section>
+<!-- Column: Preparing -->
+<section class="flex flex-col min-w-[320px] max-w-[400px] flex-1 h-full bg-surface border border-outline-variant rounded border-t-4 border-t-secondary">
+<header class="p-sm border-b border-outline-variant bg-surface-container flex justify-between items-center">
+<div class="flex items-center gap-xs">
+<h3 class="font-label-md text-label-md text-on-surface uppercase tracking-wider">Preparing</h3>
+<span class="bg-secondary text-on-secondary font-mono-data text-[10px] px-1 rounded">2</span>
+</div>
+<span class="material-symbols-outlined text-outline">more_horiz</span>
+</header>
+<div class="flex-1 overflow-y-auto p-sm flex flex-col gap-sm">
+<!-- Order Card (Priority) -->
+<article class="bg-surface border-l-4 border-l-error border-y border-r border-outline-variant p-sm rounded hover:border-primary transition-colors cursor-grab shadow-[0px_4px_12px_rgba(0,0,0,0.08)]">
+<div class="flex justify-between items-start mb-sm">
+<div>
+<span class="font-mono-data text-body-md font-bold text-primary">#1038</span>
+<span class="font-label-md text-label-md text-on-surface-variant ml-xs">Table 4</span>
+</div>
+<span class="font-mono-data text-label-md text-error flex items-center font-bold">
+<span class="material-symbols-outlined text-[14px] mr-1">warning</span> Delayed
+                            </span>
+</div>
+<div class="space-y-xs">
+<div class="flex justify-between items-start">
+<span class="font-body-md text-on-surface line-through text-outline">1x Garlic Bread</span>
+<span class="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
+</div>
+<div class="flex justify-between items-start mt-2">
+<span class="font-body-md text-on-surface font-semibold">2x Ribeye Steak</span>
+<span class="font-label-md text-label-md bg-surface-container px-1 rounded text-on-surface-variant">Main</span>
+</div>
+<ul class="pl-md list-disc list-outside text-on-surface-variant font-label-md text-label-md space-y-1">
+<li>Medium Rare</li>
+<li>Mashed Potatoes side</li>
+</ul>
+</div>
+<div class="mt-sm pt-sm border-t border-outline-variant flex justify-end gap-xs">
+<button class="bg-surface border border-outline-variant text-on-surface font-label-md px-sm py-xs rounded hover:bg-surface-container-high transition-colors">
+                                Bump
+                            </button>
+<button class="bg-tertiary-fixed-dim text-tertiary-container font-label-md px-sm py-xs rounded hover:bg-tertiary-fixed transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">done_all</span> Ready
+                            </button>
+</div>
+</article>
+</div>
+</section>
+<!-- Column: Ready -->
+<section class="flex flex-col min-w-[320px] max-w-[400px] flex-1 h-full bg-surface border border-outline-variant rounded border-t-4 border-t-tertiary-fixed-dim opacity-80">
+<header class="p-sm border-b border-outline-variant bg-surface-container flex justify-between items-center">
+<div class="flex items-center gap-xs">
+<h3 class="font-label-md text-label-md text-on-surface uppercase tracking-wider">Ready</h3>
+<span class="bg-tertiary-fixed-dim text-tertiary-container font-mono-data text-[10px] px-1 rounded">1</span>
+</div>
+<span class="material-symbols-outlined text-outline">more_horiz</span>
+</header>
+<div class="flex-1 overflow-y-auto p-sm flex flex-col gap-sm">
+<!-- Order Card -->
+<article class="bg-surface border border-outline-variant p-sm rounded opacity-75">
+<div class="flex justify-between items-start mb-sm">
+<div>
+<span class="font-mono-data text-body-md font-bold text-outline">#1035</span>
+<span class="font-label-md text-label-md text-outline ml-xs">Delivery App</span>
+</div>
+<span class="font-label-md text-tertiary-fixed-dim bg-tertiary-container px-1 rounded flex items-center">
+                                Waiting Pickup
+                            </span>
+</div>
+<div class="space-y-xs">
+<div class="flex justify-between items-start">
+<span class="font-body-md text-outline line-through">3x Burger Combo</span>
+</div>
+</div>
+</article>
+</div>
+</section>
+</div>
+</main>
+</body></html>
