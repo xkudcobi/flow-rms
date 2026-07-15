@@ -387,8 +387,8 @@ function PerformansTab() {
             </ResponsiveContainer>
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-line bg-surface-card">
-            <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto rounded-lg border border-line bg-surface-card">
+            <table className="w-full min-w-[34rem] text-left text-sm">
               <thead className="border-b border-line text-xs uppercase tracking-wide text-muted">
                 <tr>
                   <th className="px-4 py-3">#</th>

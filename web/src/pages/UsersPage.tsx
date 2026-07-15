@@ -47,8 +47,8 @@ export default function UsersPage() {
       </div>
       {error && <p className="mb-3 text-red-600">{error}</p>}
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <table className="w-full text-left text-sm">
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <table className="w-full min-w-[34rem] text-left text-sm">
           <thead className="bg-gray-50 text-gray-600">
             <tr>
               <th className="px-4 py-3">Ad Soyad</th>

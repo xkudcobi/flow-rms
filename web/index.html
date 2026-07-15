@@ -2,7 +2,11 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <!-- user-scalable=no / maximum-scale KALDIRILDI: kullanıcının parmakla
+         yakınlaştırmasını engellemek erişilebilirlik açısından hatalı ve dar
+         ekranda tek kaçış yolunu kapatıyordu. viewport-fit=cover: çentikli
+         telefonlarda güvenli alan (safe-area) hesaplanabilsin. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>FLOW — Restoran Yönetim Sistemi</title>
   </head>
   <body>

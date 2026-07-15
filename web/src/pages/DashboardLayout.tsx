@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   ChevronDown,
+  Menu,
   Search,
   X,
   LayoutGrid,
@@ -113,6 +114,28 @@ export default function DashboardLayout() {
     }
   });
   const [navQuery, setNavQuery] = useState('');
+  // Mobilde sidebar çekmece olarak açılır. Tablet/masaüstünde (md+) her zaman
+  // görünür olduğu için bu durum orada hiç kullanılmaz.
+  const [navOpen, setNavOpen] = useState(false);
+  const location = useLocation();
+
+  // Sayfa değişince çekmeceyi kapat — mobilde bir menü seçtikten sonra
+  // çekmecenin açık kalması içeriği gizler.
+  useEffect(() => setNavOpen(false), [location.pathname]);
+
+  // Escape ile kapat + çekmece açıkken arkadaki sayfa kaymasın.
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setNavOpen(false);
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [navOpen]);
+
   function toggleGroup(title: string) {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -146,8 +169,40 @@ export default function DashboardLayout() {
 
   return (
     <div className="flex h-full">
-      {/* Sidebar — siyah, Signal Blue aktif durum */}
-      <aside className="flex w-64 flex-col bg-sidebar text-white">
+      {/* Mobil üst bar — yalnız telefonda. Sidebar burada çekmeceye taşındığı
+          için FLOW başlığı ve bildirimler bu barda durur. */}
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 bg-sidebar px-4 md:hidden">
+        <button
+          onClick={() => setNavOpen(true)}
+          aria-label="Menüyü aç"
+          className="-ml-1 rounded p-1.5 text-white transition-colors hover:bg-white/10"
+        >
+          <Menu size={22} strokeWidth={2} />
+        </button>
+        <h1 className="font-display text-lg font-bold tracking-tight text-white">FLOW</h1>
+        <div className="ml-auto">
+          <NotificationBell />
+        </div>
+      </header>
+
+      {/* Çekmece arkası karartma — dokununca kapanır. */}
+      {navOpen && (
+        <div
+          onClick={() => setNavOpen(false)}
+          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar — siyah, Signal Blue aktif durum.
+          Mobilde: ekran dışında duran, kaydırarak açılan çekmece (fixed).
+          md ve üstünde: eskisi gibi sabit sütun (static) — tablet/masaüstü
+          deneyimi hiç değişmez. */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-sidebar text-white transition-transform duration-200 md:static md:z-auto md:translate-x-0 ${
+          navOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div className="flex items-start justify-between px-5 pb-6 pt-5">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight text-white">
@@ -157,7 +212,17 @@ export default function DashboardLayout() {
               Restoran Yönetimi
             </p>
           </div>
-          <NotificationBell />
+          {/* Mobilde zil üst barda duruyor; burada yerine kapatma butonu var. */}
+          <button
+            onClick={() => setNavOpen(false)}
+            aria-label="Menüyü kapat"
+            className="-mr-1 rounded p-1 text-sidebar-muted transition-colors hover:bg-white/10 hover:text-white md:hidden"
+          >
+            <X size={20} strokeWidth={2} />
+          </button>
+          <div className="hidden md:block">
+            <NotificationBell />
+          </div>
         </div>
 
         {/* Hızlı menü arama */}
@@ -252,8 +317,11 @@ export default function DashboardLayout() {
         </div>
       </aside>
 
-      {/* İçerik */}
-      <main className="flex-1 overflow-auto bg-surface">
+      {/* İçerik — mobilde sabit üst barın (h-14) altından başlar.
+          min-w-0: flex çocuğu varsayılan olarak içeriğinden küçülemez; bu
+          olmadan geniş bir tablo tüm sayfayı yatay kaydırtır (asıl "sıkışma"
+          hissinin sebeplerinden). */}
+      <main className="min-w-0 flex-1 overflow-auto bg-surface pt-14 md:pt-0">
         <Outlet />
       </main>
 
