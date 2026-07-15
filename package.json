@@ -15,6 +15,10 @@
     "dev:server": "npm run dev -w server",
     "dev:web": "npm run dev -w web",
     "db:setup": "npm run db:setup -w server",
+    "remote:harden": "node scripts/remote/harden.mjs",
+    "remote:setup": "node scripts/remote/setup.mjs",
+    "remote:start": "node scripts/remote/start.mjs",
+    "remote:provision": "node scripts/remote/provision.mjs",
     "graph:watch": "graphify watch .",
     "graph:index": "graphify update . --force",
     "graph:hooks": "graphify hook install"

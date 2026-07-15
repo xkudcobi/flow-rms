@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { IsString, MinLength } from 'class-validator';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -18,6 +19,11 @@ class LoginDto {
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
+  // Giriş denemesi limiti: IP başına 5 dakikada 10 deneme.
+  // Gerçek kullanıcı şifresini yanlış yazsa bile rahat rahat düzeltir; ama
+  // sözlük saldırısı 5 dakikada 10 denemeye düşünce anlamsızlaşır.
+  // Uzaktan erişimde bu, sistemi internete açan tek kapının kilididir.
+  @Throttle({ default: { limit: 10, ttl: 300_000 } })
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.auth.validateAndLogin(dto.username, dto.password);

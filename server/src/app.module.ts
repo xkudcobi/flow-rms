@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { PrismaModule } from './prisma/prisma.module';
@@ -44,9 +46,18 @@ const staticModules = existsSync(webDist)
     ]
   : [];
 
+// Genel istek limiti (IP başına). Yoğun bir serviste tablet+KDS+kasa hızlı
+// çalışır; limit gerçek kullanımı engellemeyecek kadar geniş, otomatik
+// taramaları kesecek kadar dar. Asıl kritik olan giriş limiti
+// auth.controller.ts'te ayrıca ve çok daha sıkı tanımlı.
+const throttlerModule = ThrottlerModule.forRoot([
+  { name: 'default', ttl: 60_000, limit: 600 },
+]);
+
 @Module({
   imports: [
     ...staticModules,
+    throttlerModule,
     GraphMemoryModule,
     PrismaModule,
     AuthModule,
@@ -76,5 +87,6 @@ const staticModules = existsSync(webDist)
     ImportModule,
   ],
   controllers: [AppController],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

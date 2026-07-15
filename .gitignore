@@ -33,3 +33,11 @@ server/src/generated/
 
 # graphify oto-hafıza — çalışma anında üretilen tüm artefaktlar (dağıtımda gerekmez).
 graphify-out/
+
+# uzaktan erişim: indirilen cloudflared ikilisi (~20 MB) ve tünel kimlik bilgileri.
+# Kurulum betiği her makinede kendisi indirir; token'lar asla depoya girmemeli.
+.cloudflared/
+
+# Cloudflare provisioning kimlik bilgileri (sistemi kuran tarafa özel).
+# Bu dosya sızarsa tüm işletmelerin tünelleri açılabilir — asla commit etmeyin.
+.cf-provision.env

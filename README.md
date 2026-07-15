@@ -48,6 +48,24 @@ Garson tableti / mutfak ekranı / kasa bilgisayarının tarayıcısında yukarı
 
 ---
 
+## 🌐 Uzaktan Erişim (opsiyonel)
+FLOW varsayılan olarak **yalnızca restoranın yerel ağında** çalışır. Patronun işletmeyi
+dışarıdan (evden, telefondan) takip etmesi için Cloudflare Tunnel ile uzaktan erişim açılabilir:
+modemde port açmak, sabit IP almak gerekmez, HTTPS otomatik gelir.
+
+```bash
+npm run remote:harden    # önce güvenlik: şifreler + JWT anahtarı (zorunlu)
+npm run remote:setup     # kurulum sihirbazı
+```
+
+Uzaktan erişim açıkken sistem, varsayılan şifreler veya örnek `JWT_SECRET` varsa
+**başlamaz** — yerel ağda zararsız olan zayıf şifre, internete açılınca zararsız değildir.
+
+Ayrıntılar, kalıcı adres kurulumu ve her işletmeye kendi adresini açma:
+**[docs/uzaktan-erisim.md](docs/uzaktan-erisim.md)**
+
+---
+
 ## 🤖 Yapay Zeka (opsiyonel, tek tık)
 FLOW'un asistanı ve doğal dil sorguları tamamen **yerel** çalışır (Ollama). İstemezseniz sistem
 yapay zeka olmadan da tam çalışır (asistan "kapalı" görünür).
