@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import Modal from '../components/Modal';
-import { Button, Field, Input, Select } from '../components/ui';
+import Combobox from '../components/Combobox';
+import { Button, Field, Input, NumberInput, Select } from '../components/ui';
 
 interface StockItem {
   id: string;
   name: string;
   unit: string;
+  group?: string | null;
   quantity: number;
   criticalLevel: number;
   cost?: number;
@@ -16,6 +18,8 @@ interface Product {
   id: string;
   name: string;
   categoryId: string;
+  /** Reçetesi var mı — yoksa satışta stok düşmez, ekranda uyarılır. */
+  hasRecipe?: boolean;
 }
 interface RecipeLine {
   id: string;
@@ -24,7 +28,7 @@ interface RecipeLine {
   stockItem: StockItem;
 }
 
-const UNITS = ['adet', 'kg', 'gr', 'lt', 'ml'];
+const UNITS = ['adet', 'kg', 'gr', 'lt', 'cl', 'ml'];
 const num = (n: number) => n.toLocaleString('tr-TR', { maximumFractionDigits: 3 });
 
 export default function StockPage() {
@@ -103,8 +107,8 @@ function StockItems() {
 
       {error && <p className="mb-3 text-red-600">{error}</p>}
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <table className="w-full text-left text-sm">
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <table className="w-full min-w-[34rem] text-left text-sm">
           <thead className="bg-gray-50 text-gray-600">
             <tr>
               <th className="px-4 py-3">Hammadde</th>
@@ -174,6 +178,9 @@ function StockItems() {
       {edit && (
         <ItemForm
           value={edit === 'new' ? null : edit}
+          knownGroups={[
+            ...new Set(items.map((i) => i.group).filter((g): g is string => !!g)),
+          ].sort((a, b) => a.localeCompare(b, 'tr'))}
           onClose={() => setEdit(null)}
           onSaved={() => {
             setEdit(null);
@@ -197,15 +204,19 @@ function StockItems() {
 
 function ItemForm({
   value,
+  knownGroups,
   onClose,
   onSaved,
 }: {
   value: StockItem | null;
+  /** Mevcut kalemlerden toplanan grup adları — datalist önerisi için. */
+  knownGroups: string[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [name, setName] = useState(value?.name || '');
   const [unit, setUnit] = useState(value?.unit || 'adet');
+  const [group, setGroup] = useState(value?.group || '');
   const [quantity, setQuantity] = useState<number>(value?.quantity ?? 0);
   const [criticalLevel, setCritical] = useState<number>(
     value?.criticalLevel ?? 0,
@@ -217,16 +228,20 @@ function ItemForm({
     setBusy(true);
     setErr('');
     try {
+      // Boş grup null olarak gitsin — "" ile null'ı karıştırmayalım.
+      const groupValue = group.trim() || null;
       if (value) {
         await api.patch(`/stock/items/${value.id}`, {
           name,
           unit,
+          group: groupValue,
           criticalLevel: Number(criticalLevel),
         });
       } else {
         await api.post('/stock/items', {
           name,
           unit,
+          group: groupValue,
           quantity: Number(quantity),
           criticalLevel: Number(criticalLevel),
         });
@@ -267,21 +282,28 @@ function ItemForm({
           ))}
         </Select>
       </Field>
+      <Field label="Grup (reçete seçicisinde gruplamak için)">
+        {/* Serbest metin + mevcut grupların önerisi: işletme kendi grubunu
+            yazabilsin, ama var olanı da tek tıkla seçebilsin. */}
+        <Input
+          value={group}
+          onChange={(e) => setGroup(e.target.value)}
+          list="stok-gruplari"
+          placeholder="ör. Et Ürünleri, Kuru Gıda — boş bırakılabilir"
+        />
+        <datalist id="stok-gruplari">
+          {knownGroups.map((g) => (
+            <option key={g} value={g} />
+          ))}
+        </datalist>
+      </Field>
       {!value && (
         <Field label="Başlangıç Miktarı">
-          <Input
-            type="number"
-            value={quantity}
-            onChange={(e) => setQuantity(Number(e.target.value))}
-          />
+          <NumberInput value={quantity} onChange={setQuantity} placeholder="0" />
         </Field>
       )}
       <Field label="Kritik Seviye (bu değere inince uyarı)">
-        <Input
-          type="number"
-          value={criticalLevel}
-          onChange={(e) => setCritical(Number(e.target.value))}
-        />
+        <NumberInput value={criticalLevel} onChange={setCritical} placeholder="0" />
       </Field>
     </Modal>
   );
@@ -379,12 +401,15 @@ function Recipes() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  function load() {
     api
       .get<Product[]>('/menu/products')
       .then(setProducts)
       .catch((e) => setError(e.message));
-  }, []);
+  }
+  useEffect(load, []);
+
+  const eksik = products.filter((p) => !p.hasRecipe).length;
 
   return (
     <>
@@ -393,20 +418,49 @@ function Recipes() {
         Bir ürünün reçetesini tanımlayın; o ürün satılınca hammaddeler otomatik
         düşer.
       </p>
+
+      {/* Reçetesi olmayan ürün satılınca stoktan hiçbir şey düşmez. Bu sessiz
+          davranış "stok çalışmıyor" sanılmasına yol açıyordu — açıkça söyle. */}
+      {eksik > 0 && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning-light px-3 py-2.5 text-sm">
+          <span className="text-warning">⚠</span>
+          <span className="text-ink">
+            <b>{eksik} ürünün reçetesi yok.</b> Bu ürünler satıldığında stoktan
+            hiçbir şey düşmez. Aşağıda “reçete yok” işaretli olanlar.
+          </span>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {products.map((p) => (
           <button
             key={p.id}
             onClick={() => setEditing(p)}
-            className="rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm hover:border-brand"
+            className={`rounded-xl border bg-white p-4 text-left shadow-sm hover:border-brand ${
+              p.hasRecipe ? 'border-gray-200' : 'border-warning/40'
+            }`}
           >
             <div className="font-medium text-gray-800">{p.name}</div>
-            <div className="mt-1 text-xs text-brand">reçeteyi düzenle →</div>
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <span className="text-xs text-brand">reçeteyi düzenle →</span>
+              {!p.hasRecipe && (
+                <span className="shrink-0 rounded bg-warning-light px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+                  reçete yok
+                </span>
+              )}
+            </div>
           </button>
         ))}
       </div>
       {editing && (
-        <RecipeEditor product={editing} onClose={() => setEditing(null)} />
+        <RecipeEditor
+          product={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            load(); // "reçete yok" rozeti kaydedince güncellensin
+          }}
+        />
       )}
     </>
   );
@@ -415,9 +469,11 @@ function Recipes() {
 function RecipeEditor({
   product,
   onClose,
+  onSaved,
 }: {
   product: Product;
   onClose: () => void;
+  onSaved: () => void;
 }) {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [lines, setLines] = useState<{ stockItemId: string; quantity: number }[]>(
@@ -442,7 +498,10 @@ function RecipeEditor({
 
   function addLine() {
     if (stockItems.length === 0) return;
-    setLines((p) => [...p, { stockItemId: stockItems[0].id, quantity: 1 }]);
+    // Boş başla: eskiden listenin ilk hammaddesi otomatik seçiliyordu ve
+    // kullanıcı değiştirmeyi unutunca yanlış reçete kaydediliyordu.
+    // Combobox boşken "Hammadde ara…" yazar, seçim bilinçli olur.
+    setLines((p) => [...p, { stockItemId: '', quantity: 1 }]);
   }
   function setLine(i: number, patch: Partial<{ stockItemId: string; quantity: number }>) {
     setLines((p) => p.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
@@ -452,13 +511,17 @@ function RecipeEditor({
   }
 
   async function save() {
+    // Seçilmemiş satır (stockItemId boş) sunucuda 500'e yol açardı — burada ele.
+    const gecerli = lines.filter((l) => l.stockItemId && l.quantity > 0);
+    if (lines.length > 0 && gecerli.length === 0) {
+      setErr('En az bir hammadde seçip miktar girin.');
+      return;
+    }
     setBusy(true);
     setErr('');
     try {
-      await api.put(`/stock/recipe/${product.id}`, {
-        items: lines.filter((l) => l.quantity > 0),
-      });
-      onClose();
+      await api.put(`/stock/recipe/${product.id}`, { items: gecerli });
+      onSaved();
     } catch (e: any) {
       setErr(e.message);
       setBusy(false);
@@ -493,26 +556,26 @@ function RecipeEditor({
               const si = stockItems.find((s) => s.id === l.stockItemId);
               return (
                 <div key={i} className="flex items-center gap-2">
-                  <Select
+                  <Combobox
+                    className="min-w-0 flex-1"
                     value={l.stockItemId}
-                    onChange={(e) => setLine(i, { stockItemId: e.target.value })}
-                    className="flex-1"
-                  >
-                    {stockItems.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.unit})
-                      </option>
-                    ))}
-                  </Select>
-                  <Input
-                    type="number"
-                    value={l.quantity}
-                    onChange={(e) =>
-                      setLine(i, { quantity: Number(e.target.value) })
-                    }
-                    className="w-24"
+                    onChange={(v) => setLine(i, { stockItemId: v })}
+                    placeholder="Hammadde ara…"
+                    emptyText="Bu isimde hammadde yok"
+                    options={stockItems.map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                      group: s.group || undefined,
+                      hint: s.unit,
+                    }))}
                   />
-                  <span className="w-8 text-xs text-gray-400">{si?.unit}</span>
+                  <NumberInput
+                    value={l.quantity}
+                    onChange={(n) => setLine(i, { quantity: n })}
+                    placeholder="0"
+                    className="w-24 shrink-0"
+                  />
+                  <span className="w-8 shrink-0 text-xs text-gray-400">{si?.unit}</span>
                   <button
                     onClick={() => removeLine(i)}
                     className="text-red-500 hover:text-red-700"

@@ -1,4 +1,10 @@
-import { ButtonHTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes } from 'react';
+import {
+  ButtonHTMLAttributes,
+  InputHTMLAttributes,
+  SelectHTMLAttributes,
+  useEffect,
+  useState,
+} from 'react';
 
 // FLOW tasarım sistemi bileşenleri: keskin köşe (4px), ince kenarlık, düz (flat) yüzeyler.
 const inputBase =
@@ -27,6 +33,60 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
 
 export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
   return <select {...props} className={`${inputBase} ${props.className || ''}`} />;
+}
+
+/**
+ * Ondalık sayı girişi (reçete miktarı, stok, fiyat).
+ *
+ * Neden ayrı bir bileşen: `value={n}` + `onChange={e => set(Number(e.target.value))}`
+ * kalıbı iki şeyi bozuyordu —
+ *   1) "0.1" yazılamıyordu: Number("0.") === 0 olduğu için nokta anında yutulup
+ *      input tekrar "0" olarak render ediliyordu.
+ *   2) Değer 0'ken yazmaya başlayınca "05" gibi baştaki sıfır kalıyordu.
+ * Çözüm: metni string olarak tut, dışarıya sayı ver. Virgül de kabul edilir
+ * (Türkçe klavyede ondalık ayırıcı virgüldür).
+ */
+export function NumberInput({
+  value,
+  onChange,
+  className,
+  ...props
+}: Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'> & {
+  value: number;
+  onChange: (n: number) => void;
+}) {
+  const [text, setText] = useState(() => (value ? String(value) : ''));
+
+  // Dışarıdan değer değişirse (ör. form sıfırlandı) metni eşitle. Kullanıcı
+  // "0." yazarken parse sonucu aynı kalacağı için buraya girmez — yazım bozulmaz.
+  useEffect(() => {
+    const parsed = parseFloat(text.replace(',', '.'));
+    const current = isNaN(parsed) ? 0 : parsed;
+    if (current !== value) setText(value ? String(value) : '');
+  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <input
+      {...props}
+      type="text"
+      inputMode="decimal"
+      value={text}
+      onChange={(e) => {
+        const raw = e.target.value;
+        // Yalnız rakam, nokta/virgül ve baştaki eksi.
+        if (raw !== '' && !/^-?[0-9]*[.,]?[0-9]*$/.test(raw)) return;
+        setText(raw);
+        const n = parseFloat(raw.replace(',', '.'));
+        onChange(isNaN(n) ? 0 : n);
+      }}
+      onBlur={(e) => {
+        // Odak çıkınca normalize et: "05" → "5", "0." → "0", "" → "0".
+        setText(value ? String(value) : '0');
+        props.onBlur?.(e);
+      }}
+      className={`${inputBase} ${className || ''}`}
+    />
+  );
 }
 
 type BtnVariant = 'primary' | 'secondary' | 'danger' | 'dark';

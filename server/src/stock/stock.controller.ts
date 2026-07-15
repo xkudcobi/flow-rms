@@ -29,6 +29,8 @@ import { JwtUser } from '../auth/jwt-auth.guard';
 class ItemDto {
   @IsString() name: string;
   @IsOptional() @IsString() unit?: string;
+  // Hammadde grubu; null = gruplanmamış ("Diğer").
+  @IsOptional() @IsString() group?: string | null;
   @IsOptional() @IsNumber() quantity?: number;
   @IsOptional() @IsNumber() criticalLevel?: number;
   @IsOptional() @IsBoolean() active?: boolean;

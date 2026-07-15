@@ -63,8 +63,11 @@ model Product {
 model StockItem {
   id            String          @id @default(cuid())
   name          String
-  // Birim: adet | kg | gr | lt | ml
+  // Birim: adet | kg | gr | lt | ml | cl
   unit          String          @default("adet")
+  // Hammadde grubu (Et Ürünleri, Süt Ürünleri, Kuru Gıda...). Reçete seçicisinde
+  // ve stok listesinde gruplamak için; boş bırakılabilir ("Diğer" sayılır).
+  group         String?
   quantity      Float           @default(0)
   criticalLevel Float           @default(0)
   cost          Float           @default(0) // son alış birim maliyeti (KDV hariç)
@@ -289,6 +292,10 @@ model BusinessSetting {
   address      String?
   phone        String?
   note         String? // serbest işletme bilgisi (AI'a bağlam: konsept, hedef kitle, kampanya kuralları vb.)
+  // QR'dan sipariş alınsın mı? false ise müşteri menüyü ve kendi adisyonunu
+  // görür, garson çağırabilir — ama sipariş gönderemez (bazı işletmeler
+  // siparişi yalnız garsonla almak ister).
+  qrOrderingEnabled Boolean @default(true)
   // Google yorumları özeti (son senkronizasyondan)
   reviewsRating   Float? // genel Google puanı
   reviewsTotal    Int? // toplam Google yorum sayısı

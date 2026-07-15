@@ -11,6 +11,7 @@ interface Settings {
   address?: string | null;
   phone?: string | null;
   note?: string | null;
+  qrOrderingEnabled: boolean;
 }
 
 const GUNLER = [
@@ -61,6 +62,7 @@ export default function AyarlarPage() {
         address: s.address || null,
         phone: s.phone || null,
         note: s.note || null,
+        qrOrderingEnabled: s.qrOrderingEnabled,
       });
       setS(updated);
       setSaved(true);
@@ -138,6 +140,33 @@ export default function AyarlarPage() {
               ))}
             </div>
           </div>
+        </div>
+
+        <div className="rounded-lg border border-line bg-surface-card p-5">
+          <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted">
+            QR Menü
+          </h2>
+          <p className="mb-3 text-xs text-faint">
+            Müşteri masadaki karekodu okuttuğunda ne yapabilsin?
+          </p>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={s.qrOrderingEnabled}
+              onChange={(e) => set('qrOrderingEnabled', e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
+            />
+            <span>
+              <span className="block text-sm font-medium text-ink">
+                QR'dan sipariş alınsın
+              </span>
+              <span className="mt-0.5 block text-xs text-muted">
+                Kapatırsanız müşteri menüyü ve kendi hesabını görür, garson
+                çağırabilir — ama sipariş gönderemez. Siparişi yalnız garsonla
+                almak isteyen işletmeler için.
+              </span>
+            </span>
+          </label>
         </div>
 
         <div className="rounded-lg border border-line bg-surface-card p-5">

@@ -14,9 +14,23 @@ interface Product {
   price: number;
   categoryId: string;
 }
+interface OrderItem {
+  nameSnapshot: string;
+  quantity: number;
+  status: string;
+  unitPrice: number;
+  lineTotal: number;
+}
 interface TableInfo {
   table: { id: string; name: string; floor?: string };
-  order: { total: number; items: { nameSnapshot: string; quantity: number; status: string }[] } | null;
+  order: {
+    total: number;
+    discount: number;
+    openedAt: string;
+    items: OrderItem[];
+  } | null;
+  /** İşletme QR'dan sipariş almayı kapatmış olabilir; kural sunucuda da var. */
+  orderingEnabled: boolean;
 }
 interface Line {
   productId: string;
@@ -34,10 +48,17 @@ export default function PublicMenuPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [activeCat, setActiveCat] = useState('');
   const [cart, setCart] = useState<Line[]>([]);
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState<{ msg: string; kind: 'ok' | 'err' } | null>(
+    null,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
+  const [view, setView] = useState<'menu' | 'hesap'>('menu');
+
+  // Sunucu kapalı derse sipariş arayüzü hiç gösterilmez. undefined (henüz
+  // yüklenmedi) durumunda da gizli tutulur — açık sanıp sonra kaybolmasın.
+  const orderingEnabled = info?.orderingEnabled === true;
 
   async function loadInfo() {
     try {
@@ -59,9 +80,13 @@ export default function PublicMenuPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  function flash(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(''), 2500);
+  // Sayfa yüklendikten sonraki hatalar (sipariş reddedildi, çağrı gitmedi)
+  // hiçbir yerde görünmüyordu: setError sadece !info durumunda render ediliyor,
+  // yani müşteri "Sipariş Ver"e basıyor ve sessizce hiçbir şey olmuyordu.
+  // Artık bu hatalar da toast olarak gösteriliyor.
+  function flash(msg: string, kind: 'ok' | 'err' = 'ok') {
+    setToast({ msg, kind });
+    setTimeout(() => setToast(null), kind === 'err' ? 4000 : 2500);
   }
   function add(p: Product) {
     setCart((prev) => {
@@ -100,7 +125,9 @@ export default function PublicMenuPage() {
       flash('Siparişiniz mutfağa iletildi ✓');
       loadInfo();
     } catch (e: any) {
-      setError(e.message);
+      // Sunucu reddedebilir (ör. QR siparişi kapatılmış) — müşteri sebebi görsün.
+      flash(e.message || 'Sipariş gönderilemedi', 'err');
+      loadInfo(); // ayar değiştiyse arayüz de güncellensin
     } finally {
       setBusy(false);
     }
@@ -110,7 +137,7 @@ export default function PublicMenuPage() {
       await api.post(`/public/t/${token}/call`, { type });
       flash(type === 'GARSON' ? 'Garson çağrıldı 🔔' : 'Hesap istendi 🧾');
     } catch (e: any) {
-      setError(e.message);
+      flash(e.message || 'Çağrı gönderilemedi', 'err');
     }
   }
 
@@ -142,44 +169,140 @@ export default function PublicMenuPage() {
         </div>
       </header>
 
-      {/* Mevcut adisyon özeti */}
-      {info?.order && info.order.items.length > 0 && (
-        <div className="border-b border-line bg-brand/5 px-4 py-2 text-xs text-muted">
-          Masanızda {info.order.items.reduce((s, i) => s + i.quantity, 0)} ürün · {tl(info.order.total)}
+      {/* Menü / Hesabım sekmeleri — müşteri masasındaki adisyonu görebilsin. */}
+      <div className="flex border-b border-line bg-surface-card">
+        {(['menu', 'hesap'] as const).map((v) => {
+          const adet = info?.order?.items.reduce((s, i) => s + i.quantity, 0) ?? 0;
+          return (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`flex-1 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+                view === v
+                  ? 'border-brand text-brand'
+                  : 'border-transparent text-muted'
+              }`}
+            >
+              {v === 'menu' ? 'Menü' : 'Hesabım'}
+              {v === 'hesap' && adet > 0 && (
+                <span className="ml-1.5 rounded-full bg-brand px-1.5 py-0.5 text-[10px] text-white">
+                  {adet}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Kategori sekmeleri — yalnız menü görünümünde */}
+      {view === 'menu' && (
+        <div className="flex gap-2 overflow-x-auto border-b border-line bg-surface-card px-3 py-2">
+          {cats.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setActiveCat(c.id)}
+              className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${
+                activeCat === c.id ? 'bg-brand text-white' : 'bg-surface-high text-muted'
+              }`}
+            >
+              {c.name}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* Kategori sekmeleri */}
-      <div className="flex gap-2 overflow-x-auto border-b border-line bg-surface-card px-3 py-2">
-        {cats.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => setActiveCat(c.id)}
-            className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${
-              activeCat === c.id ? 'bg-brand text-white' : 'bg-surface-high text-muted'
-            }`}
-          >
-            {c.name}
-          </button>
-        ))}
-      </div>
+      {/* Hesabım — masadaki açık adisyonun dökümü */}
+      {view === 'hesap' && (
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          {!info?.order || info.order.items.length === 0 ? (
+            <div className="mt-10 text-center text-sm text-muted">
+              <ReceiptText size={32} className="mx-auto mb-3 text-faint" />
+              Masanızda henüz açık hesap yok.
+            </div>
+          ) : (
+            <>
+              <div className="overflow-hidden rounded-lg border border-line bg-surface-card">
+                {info.order.items.map((i, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-start justify-between gap-3 border-b border-line px-4 py-3 last:border-0"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-medium text-ink">{i.nameSnapshot}</div>
+                      <div className="mt-0.5 text-xs text-muted">
+                        {i.quantity} × {tl(i.unitPrice)}
+                        {i.status === 'HAZIR' && ' · hazır'}
+                        {i.status === 'HAZIRLANIYOR' && ' · hazırlanıyor'}
+                      </div>
+                    </div>
+                    <div className="shrink-0 font-semibold tabular text-ink">
+                      {tl(i.lineTotal)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {info.order.discount > 0 && (
+                <div className="mt-3 flex justify-between px-1 text-sm text-muted">
+                  <span>İndirim</span>
+                  <span className="tabular">− {tl(info.order.discount)}</span>
+                </div>
+              )}
+              <div className="mt-3 flex items-center justify-between rounded-lg bg-ink px-4 py-3 text-white">
+                <span className="font-semibold">Toplam</span>
+                <span className="font-display text-xl font-bold tabular">
+                  {tl(info.order.total)}
+                </span>
+              </div>
+
+              <button
+                onClick={() => call('HESAP')}
+                className="mt-3 w-full rounded-lg border border-line bg-surface-card py-3 text-sm font-semibold text-ink"
+              >
+                Hesap İsteyin
+              </button>
+              <p className="mt-3 text-center text-[11px] text-faint">
+                Ödeme kasada/garsonla yapılır. Tutarlar bilgi amaçlıdır.
+              </p>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Ürünler */}
+      {view === 'menu' && (
       <div className="min-h-0 flex-1 overflow-y-auto p-3 pb-28">
+        {!orderingEnabled && (
+          <p className="mb-3 rounded-lg border border-line bg-surface-card px-3 py-2 text-center text-xs text-muted">
+            Sipariş için lütfen garson çağırın.
+          </p>
+        )}
         <div className="space-y-2">
-          {shown.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => add(p)}
-              className="flex w-full items-center justify-between rounded-lg border border-line bg-surface-card px-4 py-3 text-left active:bg-surface-low"
-            >
-              <span className="font-medium text-ink">{p.name}</span>
-              <span className="flex items-center gap-2">
+          {shown.map((p) =>
+            // Sipariş kapalıyken ürünler tıklanabilir olmasın: basınca hiçbir
+            // şey olmayan bir buton, bozuk sanılır.
+            orderingEnabled ? (
+              <button
+                key={p.id}
+                onClick={() => add(p)}
+                className="flex w-full items-center justify-between rounded-lg border border-line bg-surface-card px-4 py-3 text-left active:bg-surface-low"
+              >
+                <span className="font-medium text-ink">{p.name}</span>
+                <span className="flex items-center gap-2">
+                  <span className="font-semibold text-brand">{tl(p.price)}</span>
+                  <Plus size={18} className="text-brand" />
+                </span>
+              </button>
+            ) : (
+              <div
+                key={p.id}
+                className="flex w-full items-center justify-between rounded-lg border border-line bg-surface-card px-4 py-3"
+              >
+                <span className="font-medium text-ink">{p.name}</span>
                 <span className="font-semibold text-brand">{tl(p.price)}</span>
-                <Plus size={18} className="text-brand" />
-              </span>
-            </button>
-          ))}
+              </div>
+            ),
+          )}
         </div>
 
         {/* Geri bildirim */}
@@ -193,9 +316,10 @@ export default function PublicMenuPage() {
           )}
         </div>
       </div>
+      )}
 
-      {/* Sepet çubuğu */}
-      {cart.length > 0 && (
+      {/* Sepet çubuğu — yalnız menü görünümünde ve sipariş açıkken */}
+      {view === 'menu' && orderingEnabled && cart.length > 0 && (
         <div className="fixed inset-x-0 bottom-0 border-t border-line bg-surface-card p-3 shadow-float">
           <div className="mb-2 max-h-32 space-y-1 overflow-y-auto">
             {cart.map((l, i) => (
@@ -221,8 +345,12 @@ export default function PublicMenuPage() {
       )}
 
       {toast && (
-        <div className="fixed inset-x-0 bottom-24 mx-auto w-fit rounded-full bg-ink px-4 py-2 text-sm font-medium text-white shadow-float">
-          {toast}
+        <div
+          className={`fixed inset-x-4 bottom-24 mx-auto w-fit max-w-[calc(100vw-2rem)] rounded-full px-4 py-2 text-center text-sm font-medium text-white shadow-float ${
+            toast.kind === 'err' ? 'bg-danger' : 'bg-ink'
+          }`}
+        >
+          {toast.msg}
         </div>
       )}
     </div>

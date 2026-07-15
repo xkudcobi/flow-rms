@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { SettingsService } from './settings.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -13,6 +13,7 @@ class UpdateSettingsDto {
   @IsOptional() @IsString() address?: string | null;
   @IsOptional() @IsString() phone?: string | null;
   @IsOptional() @IsString() note?: string | null;
+  @IsOptional() @IsBoolean() qrOrderingEnabled?: boolean;
 }
 
 @UseGuards(JwtAuthGuard)

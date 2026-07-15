@@ -27,6 +27,7 @@ export class StockService {
   createItem(data: {
     name: string;
     unit?: string;
+    group?: string | null;
     quantity?: number;
     criticalLevel?: number;
   }) {
@@ -35,7 +36,13 @@ export class StockService {
 
   async updateItem(
     id: string,
-    data: { name?: string; unit?: string; criticalLevel?: number; active?: boolean },
+    data: {
+      name?: string;
+      unit?: string;
+      group?: string | null;
+      criticalLevel?: number;
+      active?: boolean;
+    },
   ) {
     await this.getItemOrThrow(id);
     return this.prisma.stockItem.update({ where: { id }, data });
