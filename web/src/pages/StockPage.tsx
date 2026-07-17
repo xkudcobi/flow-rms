@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import Modal from '../components/Modal';
 import Combobox from '../components/Combobox';
 import { Button, Field, Input, NumberInput, Select } from '../components/ui';
+import { downloadCSV, printHTML, esc } from '../utils/export';
 
 interface StockItem {
   id: string;
@@ -12,7 +13,34 @@ interface StockItem {
   quantity: number;
   criticalLevel: number;
   cost?: number;
+  perishable?: boolean;
   isLow?: boolean;
+}
+interface Lot {
+  id: string;
+  stockItemId: string;
+  stockItemName: string;
+  unit: string;
+  origin?: string | null;
+  supplierName?: string | null;
+  receivedAt: string;
+  expiryDate?: string | null;
+  initialQty: number;
+  remainingQty: number;
+  daysLeft?: number | null;
+}
+interface TraceRow {
+  id: string;
+  stockItemName: string;
+  unit: string;
+  origin?: string | null;
+  supplierName?: string | null;
+  receivedAt: string;
+  expiryDate?: string | null;
+  initialQty: number;
+  remainingQty: number;
+  consumed: number;
+  usedIn: { at: string; quantity: number; orderId?: string | null }[];
 }
 interface Product {
   id: string;
@@ -32,7 +60,7 @@ const UNITS = ['adet', 'kg', 'gr', 'lt', 'cl', 'ml'];
 const num = (n: number) => n.toLocaleString('tr-TR', { maximumFractionDigits: 3 });
 
 export default function StockPage() {
-  const [tab, setTab] = useState<'stok' | 'recete'>('stok');
+  const [tab, setTab] = useState<'stok' | 'recete' | 'partiler'>('stok');
   return (
     <div className="p-6">
       <div className="mb-4 flex items-center gap-4">
@@ -44,9 +72,12 @@ export default function StockPage() {
           <TabBtn active={tab === 'recete'} onClick={() => setTab('recete')}>
             Reçeteler
           </TabBtn>
+          <TabBtn active={tab === 'partiler'} onClick={() => setTab('partiler')}>
+            Partiler / SKT
+          </TabBtn>
         </div>
       </div>
-      {tab === 'stok' ? <StockItems /> : <Recipes />}
+      {tab === 'stok' ? <StockItems /> : tab === 'recete' ? <Recipes /> : <Lots />}
     </div>
   );
 }
@@ -127,6 +158,11 @@ function StockItems() {
               >
                 <td className="px-4 py-3 font-medium text-gray-800">
                   {it.name}
+                  {it.perishable && (
+                    <span className="ml-2 rounded bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">
+                      SKT
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right">
                   {num(it.quantity)} {it.unit}
@@ -221,6 +257,7 @@ function ItemForm({
   const [criticalLevel, setCritical] = useState<number>(
     value?.criticalLevel ?? 0,
   );
+  const [perishable, setPerishable] = useState<boolean>(value?.perishable ?? false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
@@ -236,6 +273,7 @@ function ItemForm({
           unit,
           group: groupValue,
           criticalLevel: Number(criticalLevel),
+          perishable,
         });
       } else {
         await api.post('/stock/items', {
@@ -244,6 +282,7 @@ function ItemForm({
           group: groupValue,
           quantity: Number(quantity),
           criticalLevel: Number(criticalLevel),
+          perishable,
         });
       }
       onSaved();
@@ -305,6 +344,21 @@ function ItemForm({
       <Field label="Kritik Seviye (bu değere inince uyarı)">
         <NumberInput value={criticalLevel} onChange={setCritical} placeholder="0" />
       </Field>
+      <label className="mt-1 flex items-start gap-2 text-sm text-ink">
+        <input
+          type="checkbox"
+          checked={perishable}
+          onChange={(e) => setPerishable(e.target.checked)}
+          className="mt-0.5 accent-brand"
+        />
+        <span>
+          <b>SKT / parti takibi</b> (et, süt, tavuk, balık…)
+          <span className="block text-xs text-muted">
+            Açıksa alışta menşei + son kullanma tarihi sorulur; tüketim en yakın
+            SKT'li partiden düşer, SKT yaklaşınca uyarı verilir.
+          </span>
+        </span>
+      </label>
     </Modal>
   );
 }
@@ -393,6 +447,212 @@ function MovementForm({
         <Input value={note} onChange={(e) => setNote(e.target.value)} />
       </Field>
     </Modal>
+  );
+}
+
+function Lots() {
+  const [lots, setLots] = useState<Lot[]>([]);
+  const [trace, setTrace] = useState<TraceRow[]>([]);
+  const [view, setView] = useState<'aktif' | 'izlenebilirlik'>('aktif');
+  const [error, setError] = useState('');
+
+  function load() {
+    api.get<Lot[]>('/stock/lots').then(setLots).catch((e) => setError(e.message));
+    api
+      .get<TraceRow[]>('/stock/traceability')
+      .then(setTrace)
+      .catch(() => {});
+  }
+  useEffect(load, []);
+
+  function badgeClass(days?: number | null): string {
+    if (days == null) return 'bg-gray-100 text-gray-600';
+    if (days <= 0) return 'bg-red-100 text-red-700';
+    if (days <= 3) return 'bg-orange-100 text-orange-700';
+    if (days <= 7) return 'bg-yellow-100 text-yellow-700';
+    return 'bg-green-100 text-green-700';
+  }
+  function daysText(days?: number | null): string {
+    if (days == null) return 'SKT yok';
+    if (days < 0) return `${Math.abs(days)} gün geçti`;
+    if (days === 0) return 'bugün';
+    return `${days} gün`;
+  }
+  const d = (s?: string | null) => (s ? new Date(s).toLocaleDateString('tr-TR') : '—');
+
+  function exportCSV() {
+    if (view === 'aktif') {
+      downloadCSV(
+        'partiler',
+        ['Ürün', 'Menşei', 'Tedarikçi', 'Giriş', 'SKT', 'Kalan', 'Kalan Gün'],
+        lots.map((l) => [
+          l.stockItemName,
+          l.origin || '',
+          l.supplierName || '',
+          d(l.receivedAt),
+          d(l.expiryDate),
+          `${l.remainingQty} ${l.unit}`,
+          daysText(l.daysLeft),
+        ]),
+      );
+    } else {
+      downloadCSV(
+        'izlenebilirlik',
+        ['Ürün', 'Menşei', 'Tedarikçi', 'Giriş', 'SKT', 'Giren', 'Tüketilen', 'Kalan'],
+        trace.map((t) => [
+          t.stockItemName,
+          t.origin || '',
+          t.supplierName || '',
+          d(t.receivedAt),
+          d(t.expiryDate),
+          `${t.initialQty} ${t.unit}`,
+          `${t.consumed} ${t.unit}`,
+          `${t.remainingQty} ${t.unit}`,
+        ]),
+      );
+    }
+  }
+
+  function exportPDF() {
+    const rows = trace
+      .map(
+        (t) => `<tr>
+          <td>${esc(t.stockItemName)}</td>
+          <td>${esc(t.origin || '—')}</td>
+          <td>${esc(t.supplierName || '—')}</td>
+          <td>${d(t.receivedAt)}</td>
+          <td>${d(t.expiryDate)}</td>
+          <td style="text-align:right">${t.initialQty} ${esc(t.unit)}</td>
+          <td style="text-align:right">${t.consumed} ${esc(t.unit)}</td>
+          <td style="text-align:right">${t.remainingQty} ${esc(t.unit)}</td>
+        </tr>`,
+      )
+      .join('');
+    printHTML(
+      'İzlenebilirlik Raporu',
+      `<h1>İzlenebilirlik Raporu</h1>
+       <table><thead><tr>
+         <th>Ürün</th><th>Menşei</th><th>Tedarikçi</th><th>Giriş</th><th>SKT</th>
+         <th>Giren</th><th>Tüketilen</th><th>Kalan</th>
+       </tr></thead><tbody>${rows}</tbody></table>`,
+    );
+  }
+
+  return (
+    <>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+          <TabBtn active={view === 'aktif'} onClick={() => setView('aktif')}>
+            Aktif Partiler
+          </TabBtn>
+          <TabBtn active={view === 'izlenebilirlik'} onClick={() => setView('izlenebilirlik')}>
+            İzlenebilirlik
+          </TabBtn>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={exportCSV}>
+            CSV
+          </Button>
+          {view === 'izlenebilirlik' && (
+            <Button variant="secondary" onClick={exportPDF}>
+              PDF / Yazdır
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {error && <p className="mb-3 text-red-600">{error}</p>}
+
+      {view === 'aktif' ? (
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+          <table className="w-full min-w-[42rem] text-left text-sm">
+            <thead className="bg-gray-50 text-gray-600">
+              <tr>
+                <th className="px-4 py-3">Ürün</th>
+                <th className="px-4 py-3">Menşei</th>
+                <th className="px-4 py-3">Tedarikçi</th>
+                <th className="px-4 py-3">Giriş</th>
+                <th className="px-4 py-3">SKT</th>
+                <th className="px-4 py-3 text-right">Kalan</th>
+                <th className="px-4 py-3">Durum</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lots.map((l) => (
+                <tr key={l.id} className="border-t border-gray-100">
+                  <td className="px-4 py-3 font-medium text-gray-800">{l.stockItemName}</td>
+                  <td className="px-4 py-3 text-gray-600">{l.origin || '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{l.supplierName || '—'}</td>
+                  <td className="px-4 py-3 text-gray-500">{d(l.receivedAt)}</td>
+                  <td className="px-4 py-3 text-gray-500">{d(l.expiryDate)}</td>
+                  <td className="px-4 py-3 text-right">
+                    {num(l.remainingQty)} {l.unit}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass(l.daysLeft)}`}
+                    >
+                      {daysText(l.daysLeft)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {lots.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-6 text-center text-gray-400">
+                    Aktif parti yok. SKT takipli bir kalemi alış faturasıyla girin.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+          <table className="w-full min-w-[48rem] text-left text-sm">
+            <thead className="bg-gray-50 text-gray-600">
+              <tr>
+                <th className="px-4 py-3">Ürün</th>
+                <th className="px-4 py-3">Menşei</th>
+                <th className="px-4 py-3">Tedarikçi</th>
+                <th className="px-4 py-3">Giriş</th>
+                <th className="px-4 py-3">SKT</th>
+                <th className="px-4 py-3 text-right">Giren</th>
+                <th className="px-4 py-3 text-right">Tüketilen</th>
+                <th className="px-4 py-3 text-right">Kalan</th>
+              </tr>
+            </thead>
+            <tbody>
+              {trace.map((t) => (
+                <tr key={t.id} className="border-t border-gray-100">
+                  <td className="px-4 py-3 font-medium text-gray-800">{t.stockItemName}</td>
+                  <td className="px-4 py-3 text-gray-600">{t.origin || '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{t.supplierName || '—'}</td>
+                  <td className="px-4 py-3 text-gray-500">{d(t.receivedAt)}</td>
+                  <td className="px-4 py-3 text-gray-500">{d(t.expiryDate)}</td>
+                  <td className="px-4 py-3 text-right">
+                    {num(t.initialQty)} {t.unit}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {num(t.consumed)} {t.unit}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {num(t.remainingQty)} {t.unit}
+                  </td>
+                </tr>
+              ))}
+              {trace.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-6 text-center text-gray-400">
+                    Henüz parti kaydı yok.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
   );
 }
 

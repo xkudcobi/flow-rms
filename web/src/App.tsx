@@ -24,6 +24,9 @@ import MusterilerPage from './pages/MusterilerPage';
 import OngorulerPage from './pages/OngorulerPage';
 import AyarlarPage from './pages/AyarlarPage';
 import VeriPage from './pages/VeriPage';
+import GorevlerPage from './pages/GorevlerPage';
+import TavsiyelerPage from './pages/TavsiyelerPage';
+import MesaiPage from './pages/MesaiPage';
 import PublicMenuPage from './public/PublicMenuPage';
 
 export default function App() {
@@ -84,6 +87,9 @@ export default function App() {
         <Route path="/ongoruler" element={<OngorulerPage />} />
         <Route path="/ayarlar" element={<AyarlarPage />} />
         <Route path="/veri" element={<VeriPage />} />
+        <Route path="/gorevler" element={<GorevlerPage />} />
+        <Route path="/tavsiyeler" element={<TavsiyelerPage />} />
+        <Route path="/mesai" element={<MesaiPage />} />
         <Route path="/kullanicilar" element={<UsersPage />} />
         <Route
           path="*"

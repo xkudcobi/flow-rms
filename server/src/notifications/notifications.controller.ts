@@ -12,6 +12,6 @@ export class NotificationsController {
   // Kullanıcının rolüne göre güncel bildirimler + nav rozet sayıları.
   @Get()
   snapshot(@CurrentUser() user: JwtUser) {
-    return this.notifications.snapshot(user.role as Role);
+    return this.notifications.snapshot(user.role as Role, user.sub);
   }
 }

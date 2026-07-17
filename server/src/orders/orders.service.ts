@@ -127,7 +127,7 @@ export class OrdersService {
   }
 
   // Siparişe kalem(ler) ekler. Ürün adı ve fiyatı sipariş anında sabitlenir.
-  async addItems(orderId: string, items: AddItemInput[], _userId: string) {
+  async addItems(orderId: string, items: AddItemInput[], userId?: string) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw new NotFoundException('Sipariş bulunamadı');
     if (order.status !== 'ACIK')
@@ -151,6 +151,7 @@ export class OrdersService {
           note: it.note,
           station: product.station,
           status: 'YENI',
+          addedById: userId ?? null,
         },
       });
       newItemIds.push(created.id);

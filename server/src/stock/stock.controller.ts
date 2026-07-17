@@ -34,6 +34,8 @@ class ItemDto {
   @IsOptional() @IsNumber() quantity?: number;
   @IsOptional() @IsNumber() criticalLevel?: number;
   @IsOptional() @IsBoolean() active?: boolean;
+  // İzlenebilirlik/SKT takibi gereken kalem mi?
+  @IsOptional() @IsBoolean() perishable?: boolean;
 }
 class MovementDto {
   @IsString() type: string; // GIRIS | FIRE | SAYIM
@@ -65,6 +67,26 @@ export class StockController {
   @Get('alerts')
   alerts() {
     return this.stock.alerts();
+  }
+
+  // İzlenebilirlik / SKT — okuma tüm giriş yapmışlara açık.
+  @Get('lots')
+  lots(@Query('stockItemId') stockItemId?: string) {
+    return this.stock.listLots(stockItemId);
+  }
+
+  @Get('expiring')
+  expiring(@Query('days') days?: string) {
+    return this.stock.expiringLots(days ? Number(days) : 7);
+  }
+
+  @Get('traceability')
+  traceability(
+    @Query('stockItemId') stockItemId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.stock.traceability({ stockItemId, from, to });
   }
 
   @Get('items/:id/movements')

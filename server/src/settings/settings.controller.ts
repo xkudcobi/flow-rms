@@ -14,6 +14,7 @@ class UpdateSettingsDto {
   @IsOptional() @IsString() phone?: string | null;
   @IsOptional() @IsString() note?: string | null;
   @IsOptional() @IsBoolean() qrOrderingEnabled?: boolean;
+  @IsOptional() @IsBoolean() attendanceQrEnabled?: boolean;
 }
 
 @UseGuards(JwtAuthGuard)

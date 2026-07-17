@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { X, ScanLine } from 'lucide-react';
 import { api } from '../api/client';
 import Modal from '../components/Modal';
 import Combobox from '../components/Combobox';
@@ -11,6 +11,7 @@ interface StockItem {
   name: string;
   unit: string;
   group?: string | null;
+  perishable?: boolean;
 }
 interface Account {
   id: string;
@@ -203,8 +204,12 @@ interface LineForm {
   unit: string;
   unitPrice: number;
   vatRate: number;
+  // İzlenebilirlik (perishable stok kaleminde): menşei + SKT
+  origin: string;
+  expiryDate: string;
+  perishable?: boolean;
 }
-const emptyLine = (): LineForm => ({ name: '', stockItemId: '', quantity: 1, unit: 'adet', unitPrice: 0, vatRate: 1 });
+const emptyLine = (): LineForm => ({ name: '', stockItemId: '', quantity: 1, unit: 'adet', unitPrice: 0, vatRate: 1, origin: '', expiryDate: '' });
 
 function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [suppliers, setSuppliers] = useState<Account[]>([]);
@@ -222,6 +227,10 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   const [newSupOpen, setNewSupOpen] = useState(false);
   // Satırdan yeni stok kalemi / menü ürünü oluşturma — hangi satır için açıldı.
   const [newItemFor, setNewItemFor] = useState<number | null>(null);
+  // Fatura tarama (OCR)
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanNote, setScanNote] = useState('');
 
   // Seçili tedarikçinin vergi bilgileri; seçince otomatik görünür.
   const supplier = suppliers.find((s) => s.id === supplierId);
@@ -246,9 +255,66 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   function setLine(i: number, patch: Partial<LineForm>) {
     setLines((p) => p.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   }
+  // Fatura görselini tara → dönen taslakla formu doldur (kullanıcı düzeltip kaydeder).
+  async function scanInvoice(file: File) {
+    setScanning(true);
+    setScanNote('');
+    setErr('');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const draft = await api.upload<{
+        provider: string;
+        confidence: number;
+        supplierName?: string;
+        invoiceNo?: string;
+        invoiceDate?: string;
+        items: { name: string; quantity?: number; unitPrice?: number; vatRate?: number }[];
+        note?: string;
+      }>('/purchases/ocr', form);
+
+      if (draft.invoiceNo) setInvoiceNo(draft.invoiceNo);
+      if (draft.invoiceDate) setInvoiceDate(draft.invoiceDate);
+      // Tedarikçiyi ada göre eşleştir (varsa seç).
+      if (draft.supplierName) {
+        const match = suppliers.find(
+          (s) => s.name.toLocaleLowerCase('tr') === draft.supplierName!.toLocaleLowerCase('tr'),
+        );
+        if (match) setSupplierId(match.id);
+      }
+      if (draft.items?.length) {
+        setLines(
+          draft.items.map((it) => ({
+            ...emptyLine(),
+            name: it.name,
+            quantity: it.quantity && it.quantity > 0 ? it.quantity : 1,
+            unitPrice: it.unitPrice || 0,
+            vatRate: it.vatRate ?? 1,
+          })),
+        );
+      }
+      const detected = draft.supplierName ? ` · Tedarikçi: ${draft.supplierName}` : '';
+      setScanNote(
+        draft.note
+          ? draft.note
+          : `Tarama tamamlandı (güven ~%${Math.round((draft.confidence || 0) * 100)})${detected}. Lütfen alanları kontrol edip düzeltin.`,
+      );
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setScanning(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
+
   function pickStock(i: number, stockItemId: string) {
     const si = stockItems.find((s) => s.id === stockItemId);
-    setLine(i, si ? { stockItemId, name: si.name, unit: si.unit } : { stockItemId: '' });
+    setLine(
+      i,
+      si
+        ? { stockItemId, name: si.name, unit: si.unit, perishable: si.perishable }
+        : { stockItemId: '', perishable: false },
+    );
   }
 
   const totals = useMemo(() => {
@@ -281,6 +347,8 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
           unit: l.unit,
           unitPrice: Number(l.unitPrice),
           vatRate: Number(l.vatRate),
+          origin: l.perishable && l.origin.trim() ? l.origin.trim() : undefined,
+          expiryDate: l.perishable && l.expiryDate ? l.expiryDate : undefined,
         })),
       });
       onSaved();
@@ -307,6 +375,31 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
       <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
         <div className="mx-auto max-w-5xl">
       {err && <p className="mb-2 text-sm text-red-600">{err}</p>}
+
+      {/* Fatura tarama (OCR) — foto/dosya yükle, taslak forma dolsun */}
+      <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-dashed border-brand/40 bg-brand/5 p-3">
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) scanInvoice(f);
+          }}
+        />
+        <Button
+          variant="secondary"
+          onClick={() => fileRef.current?.click()}
+          disabled={scanning}
+        >
+          <ScanLine size={16} className="mr-1 inline" />
+          {scanning ? 'Taranıyor…' : 'Fatura Tara (foto/dosya)'}
+        </Button>
+        <span className="text-xs text-muted">
+          {scanNote || 'Fatura fotoğrafını yükleyin; alanlar otomatik doldurulsun (kontrol edip kaydedin).'}
+        </span>
+      </div>
 
       <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Tedarikçi / Market">
@@ -451,6 +544,24 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
                 </Select>
                 <span className="ml-auto font-semibold tabular text-gray-700">{tl(total)}</span>
               </div>
+              {l.perishable && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-brand/5 p-2 text-sm">
+                  <span className="text-xs font-medium text-brand">İzlenebilirlik:</span>
+                  <Input
+                    value={l.origin}
+                    onChange={(e) => setLine(i, { origin: e.target.value })}
+                    className="w-48"
+                    placeholder="menşei / alınış yeri"
+                  />
+                  <span className="text-xs text-gray-400">SKT</span>
+                  <Input
+                    type="date"
+                    value={l.expiryDate}
+                    onChange={(e) => setLine(i, { expiryDate: e.target.value })}
+                    className="w-40"
+                  />
+                </div>
+              )}
             </div>
           );
         })}
@@ -502,6 +613,7 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
                 stockItemId: created.id,
                 name: created.name,
                 unit: created.unit,
+                perishable: created.perishable,
               });
             } else {
               // Menü ürünü stoğa bağlanmaz (PurchaseItem yalnız stockItemId
@@ -517,7 +629,7 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
 }
 
 type CreatedItem =
-  | { kind: 'stock'; id: string; name: string; unit: string }
+  | { kind: 'stock'; id: string; name: string; unit: string; perishable?: boolean }
   | { kind: 'product'; id: string; name: string };
 
 /**
@@ -538,6 +650,7 @@ function NewItemForm({
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('adet');
   const [group, setGroup] = useState('');
+  const [perishable, setPerishable] = useState(false);
   const [price, setPrice] = useState(0);
   const [categoryId, setCategoryId] = useState('');
   const [cats, setCats] = useState<{ id: string; name: string }[]>([]);
@@ -560,11 +673,11 @@ function NewItemForm({
     setErr('');
     try {
       if (kind === 'stock') {
-        const si = await api.post<{ id: string; name: string; unit: string }>(
+        const si = await api.post<{ id: string; name: string; unit: string; perishable?: boolean }>(
           '/stock/items',
-          { name: name.trim(), unit, group: group.trim() || null, quantity: 0, criticalLevel: 0 },
+          { name: name.trim(), unit, group: group.trim() || null, quantity: 0, criticalLevel: 0, perishable },
         );
-        onCreated({ kind: 'stock', id: si.id, name: si.name, unit: si.unit });
+        onCreated({ kind: 'stock', id: si.id, name: si.name, unit: si.unit, perishable: si.perishable });
       } else {
         if (!categoryId) {
           setErr('Önce Menü ekranından bir kategori oluşturun.');
@@ -643,6 +756,20 @@ function NewItemForm({
               placeholder="ör. Et Ürünleri, Kuru Gıda"
             />
           </Field>
+          <label className="flex items-start gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              checked={perishable}
+              onChange={(e) => setPerishable(e.target.checked)}
+              className="mt-0.5 accent-brand"
+            />
+            <span>
+              SKT / parti takibi (et, süt, tavuk…)
+              <span className="block text-xs text-muted">
+                Açıksa bu satırda menşei + son kullanma tarihi girilir.
+              </span>
+            </span>
+          </label>
           <p className="text-xs text-faint">
             Miktar 0 olarak açılır; bu faturadaki miktar kaydedince stoğa girer.
           </p>

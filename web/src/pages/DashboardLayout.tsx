@@ -26,14 +26,21 @@ import {
   Settings,
   Database,
   LogOut,
+  KeyRound,
+  ListChecks,
+  Lightbulb,
+  Clock,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth, AuthUser } from '../auth/AuthContext';
+import { canAccessRoute } from '../auth/pages';
+import { api } from '../api/client';
 import CallsPanel from '../components/CallsPanel';
 import AiDock from '../components/AiDock';
 import ReviewNotifier from '../components/ReviewNotifier';
 import NotificationBell from '../components/NotificationBell';
 import HelpButton from '../components/HelpButton';
+import ChangePasswordModal from '../components/ChangePasswordModal';
 import { useNotifications } from '../realtime/notifications';
 
 interface NavItem {
@@ -78,6 +85,9 @@ const NAV: NavGroup[] = [
   {
     title: 'Müşteri & Ekip',
     items: [
+      { to: '/gorevler', label: 'Görevler', icon: ListChecks },
+      { to: '/tavsiyeler', label: 'Tavsiyeler', icon: Lightbulb },
+      { to: '/mesai', label: 'Mesai', icon: Clock },
       { to: '/musteriler', label: 'Müşteriler', icon: Heart, roles: ['PATRON', 'MUDUR', 'KASIYER'] },
       { to: '/personel', label: 'Personel', icon: UserCog, roles: ['PATRON', 'MUDUR'] },
       { to: '/geribildirim', label: 'Geri Bildirim', icon: Star, roles: ['PATRON', 'MUDUR'] },
@@ -117,7 +127,17 @@ export default function DashboardLayout() {
   // Mobilde sidebar çekmece olarak açılır. Tablet/masaüstünde (md+) her zaman
   // görünür olduğu için bu durum orada hiç kullanılmaz.
   const [navOpen, setNavOpen] = useState(false);
+  const [pwdOpen, setPwdOpen] = useState(false);
+  // Mesai (QR giriş/çıkış) menü öğesi yalnızca ayardan açıksa görünür.
+  const [attendanceOn, setAttendanceOn] = useState(false);
   const location = useLocation();
+
+  useEffect(() => {
+    api
+      .get<{ attendanceQrEnabled?: boolean }>('/settings')
+      .then((s) => setAttendanceOn(!!s.attendanceQrEnabled))
+      .catch(() => undefined);
+  }, []);
 
   // Sayfa değişince çekmeceyi kapat — mobilde bir menü seçtikten sonra
   // çekmecenin açık kalması içeriği gizler.
@@ -154,7 +174,10 @@ export default function DashboardLayout() {
     title: g.title,
     items: g.items.filter(
       (i) =>
-        (!i.roles || i.roles.includes(user.role)) &&
+        // Rol varsayılanı VEYA patronun kişiye özel verdiği sayfa izni (extraPages).
+        canAccessRoute(user, i.to) &&
+        // Mesai öğesi yalnızca ayardan açıksa.
+        (i.to !== '/mesai' || attendanceOn) &&
         (!searching || i.label.toLocaleLowerCase('tr').includes(q)),
     ),
   })).filter((g) => g.items.length > 0);
@@ -307,15 +330,27 @@ export default function DashboardLayout() {
               </div>
             </div>
           </div>
-          <button
-            onClick={logout}
-            className="flex w-full items-center justify-center gap-2 rounded bg-white/10 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
-          >
-            <LogOut size={16} strokeWidth={2} />
-            Çıkış Yap
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPwdOpen(true)}
+              className="flex flex-1 items-center justify-center gap-2 rounded bg-white/10 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
+              title="Şifremi Değiştir"
+            >
+              <KeyRound size={16} strokeWidth={2} />
+              Şifre
+            </button>
+            <button
+              onClick={logout}
+              className="flex flex-1 items-center justify-center gap-2 rounded bg-white/10 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
+            >
+              <LogOut size={16} strokeWidth={2} />
+              Çıkış
+            </button>
+          </div>
         </div>
       </aside>
+
+      {pwdOpen && <ChangePasswordModal onClose={() => setPwdOpen(false)} />}
 
       {/* İçerik — mobilde sabit üst barın (h-14) altından başlar.
           min-w-0: flex çocuğu varsayılan olarak içeriğinden küçülemez; bu

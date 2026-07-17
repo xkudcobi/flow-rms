@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  IsArray,
   IsBoolean,
   IsOptional,
   IsString,
@@ -18,12 +19,14 @@ import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles, ROLES } from '../auth/roles';
+import { PAGE_ROLES, grantablePages } from '../auth/pages';
 
 class CreateUserDto {
   @IsString() username: string;
   @IsString() fullName: string;
   @IsString() @MinLength(3) password: string;
   @IsString() role: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) extraPages?: string[];
 }
 
 class UpdateUserDto {
@@ -31,6 +34,7 @@ class UpdateUserDto {
   @IsOptional() @IsString() @MinLength(3) password?: string;
   @IsOptional() @IsString() role?: string;
   @IsOptional() @IsBoolean() active?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) extraPages?: string[];
 }
 
 // Kullanıcı yönetimi yalnızca PATRON ve MÜDÜR.
@@ -43,6 +47,12 @@ export class UsersController {
   @Get()
   findAll() {
     return this.users.findAll();
+  }
+
+  // Kişiye özel verilebilecek sayfalar ve rol varsayılanları — UI izin editörü için.
+  @Get('pages')
+  pages() {
+    return { grantable: grantablePages(), roleDefaults: PAGE_ROLES };
   }
 
   @Post()

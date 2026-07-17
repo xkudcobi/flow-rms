@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import Modal from '../components/Modal';
 import { Button, Field, Input, Select } from '../components/ui';
+import {
+  PAGE_LABELS,
+  PAGE_ROLES,
+  grantablePages,
+  type PageKey,
+} from '../auth/pages';
 
 interface User {
   id: string;
@@ -9,9 +15,15 @@ interface User {
   fullName: string;
   role: string;
   active: boolean;
+  extraPages?: string[];
 }
 
 const ROLES = ['PATRON', 'MUDUR', 'KASIYER', 'GARSON', 'MUTFAK'];
+
+// Bir rolün varsayılan olarak gördüğü sayfalar (bilgi amaçlı, editörde kilitli gösterilir).
+function roleDefaultPages(role: string): PageKey[] {
+  return grantablePages().filter((k) => PAGE_ROLES[k].includes(role as any));
+}
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -126,19 +138,39 @@ function UserForm({
   const [fullName, setFullName] = useState(value?.fullName || '');
   const [role, setRole] = useState(value?.role || 'GARSON');
   const [password, setPassword] = useState('');
+  // Rol dışı kişiye özel açılan sayfalar.
+  const [extraPages, setExtraPages] = useState<string[]>(value?.extraPages || []);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+
+  const roleGrants = roleDefaultPages(role); // rolün zaten verdiği sayfalar (kilitli)
+  // Rol zaten veriyorsa ekstra listeden çıkar (çift işaret olmasın).
+  const grantable = grantablePages().filter((k) => !roleGrants.includes(k));
+
+  function toggleExtra(key: PageKey) {
+    setExtraPages((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
+  }
 
   async function save() {
     setBusy(true);
     setErr('');
     try {
+      // Rolün zaten verdiği sayfaları extraPages'e yazmaya gerek yok.
+      const cleanExtra = extraPages.filter((k) => !roleGrants.includes(k as PageKey));
       if (value) {
-        const body: any = { fullName, role };
+        const body: any = { fullName, role, extraPages: cleanExtra };
         if (password) body.password = password;
         await api.patch(`/users/${value.id}`, body);
       } else {
-        await api.post('/users', { username, fullName, role, password });
+        await api.post('/users', {
+          username,
+          fullName,
+          role,
+          password,
+          extraPages: cleanExtra,
+        });
       }
       onSaved();
     } catch (e: any) {
@@ -199,6 +231,41 @@ function UserForm({
           onChange={(e) => setPassword(e.target.value)}
         />
       </Field>
+
+      <div className="mt-2">
+        <div className="mb-1 text-sm font-medium text-ink">Sayfa Erişimleri</div>
+        <p className="mb-2 text-xs text-muted">
+          Rolün verdiği sayfalar kilitlidir. İşaretlediğin ek sayfalar bu
+          kullanıcıya rolü dışında açılır.
+        </p>
+        <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-line bg-surface-low p-2">
+          {roleGrants.map((k) => (
+            <label
+              key={k}
+              className="flex items-center gap-2 text-sm text-muted"
+              title="Rol gereği açık"
+            >
+              <input type="checkbox" checked disabled className="accent-brand" />
+              <span>{PAGE_LABELS[k]}</span>
+              <span className="text-[10px] text-faint">(rol)</span>
+            </label>
+          ))}
+          {grantable.map((k) => (
+            <label
+              key={k}
+              className="flex items-center gap-2 text-sm text-ink"
+            >
+              <input
+                type="checkbox"
+                checked={extraPages.includes(k)}
+                onChange={() => toggleExtra(k)}
+                className="accent-brand"
+              />
+              <span>{PAGE_LABELS[k]}</span>
+            </label>
+          ))}
+        </div>
+      </div>
     </Modal>
   );
 }
