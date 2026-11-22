@@ -5,7 +5,7 @@ services:
     name: flow-demo
     runtime: node
     plan: free
-    region: frankfurt
+    region: virginia  # Neon veritabanı AWS us-east-1
     branch: mobil-ve-ozellikler
     buildCommand: bash scripts/demo/render-build.sh
     startCommand: npm run start
