@@ -499,7 +499,12 @@ function Assistant() {
           </button>
         </div>
       </div>
-      {status && !status.enabled ? (
+      {status && !status.enabled && import.meta.env.VITE_DEMO === '1' ? (
+        <div className="rounded-lg bg-surface-low p-4 text-sm text-muted">
+          <p className="mb-1 font-medium text-ink">Yapay zekâ asistanı bu demoda kapalı</p>
+          <p>Gerçek kurulumda asistan restoranın kendi bilgisayarında çalışır ve işletme verinizle sohbet eder (ör. "bu ay en çok ne sattık?"). Veri dışarı çıkmaz. Yukarıdaki öngörüler ve öneriler asistandan bağımsız çalışır.</p>
+        </div>
+      ) : status && !status.enabled ? (
         <div className="rounded-lg bg-surface-low p-4 text-sm text-muted">
           <p className="mb-1 font-medium text-ink">Asistan henüz bağlı değil (opsiyonel özellik)</p>
           <p>{status.reason}</p>

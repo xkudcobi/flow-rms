@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
 import { ALL_ROLES } from '../auth/roles';
 import { isPageKey } from '../auth/pages';
+import { assertNotDemoAccount } from '../config/demo';
 
 interface CreateUserInput {
   username: string;
@@ -67,7 +68,10 @@ export class UsersService {
   }
 
   async update(id: string, input: UpdateUserInput) {
-    await this.getOrThrow(id);
+    const existing = await this.getOrThrow(id);
+    if (input.password || input.role || input.active === false) {
+      assertNotDemoAccount(existing.username);
+    }
     if (input.role) this.assertRole(input.role);
 
     const data: any = {
@@ -86,7 +90,8 @@ export class UsersService {
   }
 
   async remove(id: string) {
-    await this.getOrThrow(id);
+    const existing = await this.getOrThrow(id);
+    assertNotDemoAccount(existing.username);
     // Silmek yerine pasifleştir (adisyon/işlem geçmişi korunur).
     const user = await this.prisma.user.update({
       where: { id },

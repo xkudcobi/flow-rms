@@ -46,3 +46,7 @@ graphify-out/
 
 # Menü dışa aktarımları — işletmeye ait veri çıktısı, kaynak koda ait değil.
 menu-export/
+
+# Demo (Render) için üretilen Postgres şeması ve yerel deneme veritabanı
+server/prisma/pg/
+server/prisma/demo-test.db*

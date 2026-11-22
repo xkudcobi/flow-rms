@@ -7,6 +7,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { parseExtraPages } from './pages';
+import { assertNotDemoAccount } from '../config/demo';
 
 @Injectable()
 export class AuthService {
@@ -49,6 +50,7 @@ export class AuthService {
   async changePassword(userId: string, currentPassword: string, newPassword: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('Kullanıcı bulunamadı');
+    assertNotDemoAccount(user.username);
     const ok = await bcrypt.compare(currentPassword, user.password);
     if (!ok) throw new BadRequestException('Mevcut şifre hatalı');
     if (newPassword.length < 3) {
