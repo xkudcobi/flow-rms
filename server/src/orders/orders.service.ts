@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -31,6 +32,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: OrdersGateway,
@@ -124,7 +127,7 @@ export class OrdersService {
   }
 
   // Siparişe kalem(ler) ekler. Ürün adı ve fiyatı sipariş anında sabitlenir.
-  async addItems(orderId: string, items: AddItemInput[], _userId: string) {
+  async addItems(orderId: string, items: AddItemInput[], userId?: string) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw new NotFoundException('Sipariş bulunamadı');
     if (order.status !== 'ACIK')
@@ -148,6 +151,7 @@ export class OrdersService {
           note: it.note,
           station: product.station,
           status: 'YENI',
+          addedById: userId ?? null,
         },
       });
       newItemIds.push(created.id);
@@ -163,7 +167,10 @@ export class OrdersService {
       .printKitchenForOrder(orderId, newItemIds)
       .catch(() => undefined);
 
-    // Reçete bazlı otomatik stok düşümü (best-effort; sipariş akışını bloklamaz).
+    // Reçete bazlı otomatik stok düşümü. Siparişi bloklamaz (mutfak beklemesin),
+    // ama hatayı YUTMAZ: eskiden .catch(() => undefined) idi ve düşüm sessizce
+    // başarısız olduğunda kimse fark etmiyordu — "stok düşmüyor" şikâyetinin
+    // izini sürmek imkânsızdı.
     this.stock
       .deductForOrder(
         items.map((it) => ({
@@ -172,7 +179,12 @@ export class OrdersService {
         })),
         orderId,
       )
-      .catch(() => undefined);
+      .catch((err) =>
+        this.logger.error(
+          `Stok düşümü başarısız (sipariş ${orderId}): ${err?.message ?? err}`,
+          err?.stack,
+        ),
+      );
 
     return updated;
   }

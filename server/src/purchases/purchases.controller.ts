@@ -18,8 +18,7 @@ import {
 import { Type } from 'class-transformer';
 import { PurchasesService } from './purchases.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles, ROLES } from '../auth/roles';
+import { PermissionsGuard, RequirePage } from '../auth/permissions.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtUser } from '../auth/jwt-auth.guard';
 
@@ -30,6 +29,8 @@ class PurchaseItemDto {
   @IsOptional() @IsString() unit?: string;
   @IsNumber() @Min(0) unitPrice: number;
   @IsOptional() @IsNumber() vatRate?: number;
+  @IsOptional() @IsString() origin?: string;
+  @IsOptional() @IsString() expiryDate?: string;
 }
 class CreatePurchaseDto {
   @IsOptional() @IsString() supplierId?: string;
@@ -45,9 +46,10 @@ class CreatePurchaseDto {
   items: PurchaseItemDto[];
 }
 
-// Alış/gider yalnızca PATRON/MÜDÜR.
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(ROLES.PATRON, ROLES.MUDUR)
+// Alış/gider: rol varsayılanı PATRON/MÜDÜR; ayrıca patronun "alislar" sayfa izni
+// verdiği kullanıcılar da erişebilir (PermissionsGuard + @RequirePage).
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePage('alislar')
 @Controller('purchases')
 export class PurchasesController {
   constructor(private readonly purchases: PurchasesService) {}

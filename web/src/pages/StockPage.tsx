@@ -1,21 +1,53 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import Modal from '../components/Modal';
-import { Button, Field, Input, Select } from '../components/ui';
+import Combobox from '../components/Combobox';
+import { Button, Field, Input, NumberInput, Select } from '../components/ui';
+import { downloadCSV, printHTML, esc } from '../utils/export';
 
 interface StockItem {
   id: string;
   name: string;
   unit: string;
+  group?: string | null;
   quantity: number;
   criticalLevel: number;
   cost?: number;
+  perishable?: boolean;
   isLow?: boolean;
+}
+interface Lot {
+  id: string;
+  stockItemId: string;
+  stockItemName: string;
+  unit: string;
+  origin?: string | null;
+  supplierName?: string | null;
+  receivedAt: string;
+  expiryDate?: string | null;
+  initialQty: number;
+  remainingQty: number;
+  daysLeft?: number | null;
+}
+interface TraceRow {
+  id: string;
+  stockItemName: string;
+  unit: string;
+  origin?: string | null;
+  supplierName?: string | null;
+  receivedAt: string;
+  expiryDate?: string | null;
+  initialQty: number;
+  remainingQty: number;
+  consumed: number;
+  usedIn: { at: string; quantity: number; orderId?: string | null }[];
 }
 interface Product {
   id: string;
   name: string;
   categoryId: string;
+  /** Reçetesi var mı — yoksa satışta stok düşmez, ekranda uyarılır. */
+  hasRecipe?: boolean;
 }
 interface RecipeLine {
   id: string;
@@ -24,11 +56,11 @@ interface RecipeLine {
   stockItem: StockItem;
 }
 
-const UNITS = ['adet', 'kg', 'gr', 'lt', 'ml'];
+const UNITS = ['adet', 'kg', 'gr', 'lt', 'cl', 'ml'];
 const num = (n: number) => n.toLocaleString('tr-TR', { maximumFractionDigits: 3 });
 
 export default function StockPage() {
-  const [tab, setTab] = useState<'stok' | 'recete'>('stok');
+  const [tab, setTab] = useState<'stok' | 'recete' | 'partiler'>('stok');
   return (
     <div className="p-6">
       <div className="mb-4 flex items-center gap-4">
@@ -40,9 +72,12 @@ export default function StockPage() {
           <TabBtn active={tab === 'recete'} onClick={() => setTab('recete')}>
             Reçeteler
           </TabBtn>
+          <TabBtn active={tab === 'partiler'} onClick={() => setTab('partiler')}>
+            Partiler / SKT
+          </TabBtn>
         </div>
       </div>
-      {tab === 'stok' ? <StockItems /> : <Recipes />}
+      {tab === 'stok' ? <StockItems /> : tab === 'recete' ? <Recipes /> : <Lots />}
     </div>
   );
 }
@@ -103,8 +138,8 @@ function StockItems() {
 
       {error && <p className="mb-3 text-red-600">{error}</p>}
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <table className="w-full text-left text-sm">
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <table className="w-full min-w-[34rem] text-left text-sm">
           <thead className="bg-gray-50 text-gray-600">
             <tr>
               <th className="px-4 py-3">Hammadde</th>
@@ -123,6 +158,11 @@ function StockItems() {
               >
                 <td className="px-4 py-3 font-medium text-gray-800">
                   {it.name}
+                  {it.perishable && (
+                    <span className="ml-2 rounded bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">
+                      SKT
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right">
                   {num(it.quantity)} {it.unit}
@@ -174,6 +214,9 @@ function StockItems() {
       {edit && (
         <ItemForm
           value={edit === 'new' ? null : edit}
+          knownGroups={[
+            ...new Set(items.map((i) => i.group).filter((g): g is string => !!g)),
+          ].sort((a, b) => a.localeCompare(b, 'tr'))}
           onClose={() => setEdit(null)}
           onSaved={() => {
             setEdit(null);
@@ -197,19 +240,24 @@ function StockItems() {
 
 function ItemForm({
   value,
+  knownGroups,
   onClose,
   onSaved,
 }: {
   value: StockItem | null;
+  /** Mevcut kalemlerden toplanan grup adları — datalist önerisi için. */
+  knownGroups: string[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [name, setName] = useState(value?.name || '');
   const [unit, setUnit] = useState(value?.unit || 'adet');
+  const [group, setGroup] = useState(value?.group || '');
   const [quantity, setQuantity] = useState<number>(value?.quantity ?? 0);
   const [criticalLevel, setCritical] = useState<number>(
     value?.criticalLevel ?? 0,
   );
+  const [perishable, setPerishable] = useState<boolean>(value?.perishable ?? false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
@@ -217,18 +265,24 @@ function ItemForm({
     setBusy(true);
     setErr('');
     try {
+      // Boş grup null olarak gitsin — "" ile null'ı karıştırmayalım.
+      const groupValue = group.trim() || null;
       if (value) {
         await api.patch(`/stock/items/${value.id}`, {
           name,
           unit,
+          group: groupValue,
           criticalLevel: Number(criticalLevel),
+          perishable,
         });
       } else {
         await api.post('/stock/items', {
           name,
           unit,
+          group: groupValue,
           quantity: Number(quantity),
           criticalLevel: Number(criticalLevel),
+          perishable,
         });
       }
       onSaved();
@@ -267,22 +321,44 @@ function ItemForm({
           ))}
         </Select>
       </Field>
+      <Field label="Grup (reçete seçicisinde gruplamak için)">
+        {/* Serbest metin + mevcut grupların önerisi: işletme kendi grubunu
+            yazabilsin, ama var olanı da tek tıkla seçebilsin. */}
+        <Input
+          value={group}
+          onChange={(e) => setGroup(e.target.value)}
+          list="stok-gruplari"
+          placeholder="ör. Et Ürünleri, Kuru Gıda — boş bırakılabilir"
+        />
+        <datalist id="stok-gruplari">
+          {knownGroups.map((g) => (
+            <option key={g} value={g} />
+          ))}
+        </datalist>
+      </Field>
       {!value && (
         <Field label="Başlangıç Miktarı">
-          <Input
-            type="number"
-            value={quantity}
-            onChange={(e) => setQuantity(Number(e.target.value))}
-          />
+          <NumberInput value={quantity} onChange={setQuantity} placeholder="0" />
         </Field>
       )}
       <Field label="Kritik Seviye (bu değere inince uyarı)">
-        <Input
-          type="number"
-          value={criticalLevel}
-          onChange={(e) => setCritical(Number(e.target.value))}
-        />
+        <NumberInput value={criticalLevel} onChange={setCritical} placeholder="0" />
       </Field>
+      <label className="mt-1 flex items-start gap-2 text-sm text-ink">
+        <input
+          type="checkbox"
+          checked={perishable}
+          onChange={(e) => setPerishable(e.target.checked)}
+          className="mt-0.5 accent-brand"
+        />
+        <span>
+          <b>SKT / parti takibi</b> (et, süt, tavuk, balık…)
+          <span className="block text-xs text-muted">
+            Açıksa alışta menşei + son kullanma tarihi sorulur; tüketim en yakın
+            SKT'li partiden düşer, SKT yaklaşınca uyarı verilir.
+          </span>
+        </span>
+      </label>
     </Modal>
   );
 }
@@ -374,17 +450,226 @@ function MovementForm({
   );
 }
 
+function Lots() {
+  const [lots, setLots] = useState<Lot[]>([]);
+  const [trace, setTrace] = useState<TraceRow[]>([]);
+  const [view, setView] = useState<'aktif' | 'izlenebilirlik'>('aktif');
+  const [error, setError] = useState('');
+
+  function load() {
+    api.get<Lot[]>('/stock/lots').then(setLots).catch((e) => setError(e.message));
+    api
+      .get<TraceRow[]>('/stock/traceability')
+      .then(setTrace)
+      .catch(() => {});
+  }
+  useEffect(load, []);
+
+  function badgeClass(days?: number | null): string {
+    if (days == null) return 'bg-gray-100 text-gray-600';
+    if (days <= 0) return 'bg-red-100 text-red-700';
+    if (days <= 3) return 'bg-orange-100 text-orange-700';
+    if (days <= 7) return 'bg-yellow-100 text-yellow-700';
+    return 'bg-green-100 text-green-700';
+  }
+  function daysText(days?: number | null): string {
+    if (days == null) return 'SKT yok';
+    if (days < 0) return `${Math.abs(days)} gün geçti`;
+    if (days === 0) return 'bugün';
+    return `${days} gün`;
+  }
+  const d = (s?: string | null) => (s ? new Date(s).toLocaleDateString('tr-TR') : '—');
+
+  function exportCSV() {
+    if (view === 'aktif') {
+      downloadCSV(
+        'partiler',
+        ['Ürün', 'Menşei', 'Tedarikçi', 'Giriş', 'SKT', 'Kalan', 'Kalan Gün'],
+        lots.map((l) => [
+          l.stockItemName,
+          l.origin || '',
+          l.supplierName || '',
+          d(l.receivedAt),
+          d(l.expiryDate),
+          `${l.remainingQty} ${l.unit}`,
+          daysText(l.daysLeft),
+        ]),
+      );
+    } else {
+      downloadCSV(
+        'izlenebilirlik',
+        ['Ürün', 'Menşei', 'Tedarikçi', 'Giriş', 'SKT', 'Giren', 'Tüketilen', 'Kalan'],
+        trace.map((t) => [
+          t.stockItemName,
+          t.origin || '',
+          t.supplierName || '',
+          d(t.receivedAt),
+          d(t.expiryDate),
+          `${t.initialQty} ${t.unit}`,
+          `${t.consumed} ${t.unit}`,
+          `${t.remainingQty} ${t.unit}`,
+        ]),
+      );
+    }
+  }
+
+  function exportPDF() {
+    const rows = trace
+      .map(
+        (t) => `<tr>
+          <td>${esc(t.stockItemName)}</td>
+          <td>${esc(t.origin || '—')}</td>
+          <td>${esc(t.supplierName || '—')}</td>
+          <td>${d(t.receivedAt)}</td>
+          <td>${d(t.expiryDate)}</td>
+          <td style="text-align:right">${t.initialQty} ${esc(t.unit)}</td>
+          <td style="text-align:right">${t.consumed} ${esc(t.unit)}</td>
+          <td style="text-align:right">${t.remainingQty} ${esc(t.unit)}</td>
+        </tr>`,
+      )
+      .join('');
+    printHTML(
+      'İzlenebilirlik Raporu',
+      `<h1>İzlenebilirlik Raporu</h1>
+       <table><thead><tr>
+         <th>Ürün</th><th>Menşei</th><th>Tedarikçi</th><th>Giriş</th><th>SKT</th>
+         <th>Giren</th><th>Tüketilen</th><th>Kalan</th>
+       </tr></thead><tbody>${rows}</tbody></table>`,
+    );
+  }
+
+  return (
+    <>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+          <TabBtn active={view === 'aktif'} onClick={() => setView('aktif')}>
+            Aktif Partiler
+          </TabBtn>
+          <TabBtn active={view === 'izlenebilirlik'} onClick={() => setView('izlenebilirlik')}>
+            İzlenebilirlik
+          </TabBtn>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={exportCSV}>
+            CSV
+          </Button>
+          {view === 'izlenebilirlik' && (
+            <Button variant="secondary" onClick={exportPDF}>
+              PDF / Yazdır
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {error && <p className="mb-3 text-red-600">{error}</p>}
+
+      {view === 'aktif' ? (
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+          <table className="w-full min-w-[42rem] text-left text-sm">
+            <thead className="bg-gray-50 text-gray-600">
+              <tr>
+                <th className="px-4 py-3">Ürün</th>
+                <th className="px-4 py-3">Menşei</th>
+                <th className="px-4 py-3">Tedarikçi</th>
+                <th className="px-4 py-3">Giriş</th>
+                <th className="px-4 py-3">SKT</th>
+                <th className="px-4 py-3 text-right">Kalan</th>
+                <th className="px-4 py-3">Durum</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lots.map((l) => (
+                <tr key={l.id} className="border-t border-gray-100">
+                  <td className="px-4 py-3 font-medium text-gray-800">{l.stockItemName}</td>
+                  <td className="px-4 py-3 text-gray-600">{l.origin || '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{l.supplierName || '—'}</td>
+                  <td className="px-4 py-3 text-gray-500">{d(l.receivedAt)}</td>
+                  <td className="px-4 py-3 text-gray-500">{d(l.expiryDate)}</td>
+                  <td className="px-4 py-3 text-right">
+                    {num(l.remainingQty)} {l.unit}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass(l.daysLeft)}`}
+                    >
+                      {daysText(l.daysLeft)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {lots.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-6 text-center text-gray-400">
+                    Aktif parti yok. SKT takipli bir kalemi alış faturasıyla girin.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+          <table className="w-full min-w-[48rem] text-left text-sm">
+            <thead className="bg-gray-50 text-gray-600">
+              <tr>
+                <th className="px-4 py-3">Ürün</th>
+                <th className="px-4 py-3">Menşei</th>
+                <th className="px-4 py-3">Tedarikçi</th>
+                <th className="px-4 py-3">Giriş</th>
+                <th className="px-4 py-3">SKT</th>
+                <th className="px-4 py-3 text-right">Giren</th>
+                <th className="px-4 py-3 text-right">Tüketilen</th>
+                <th className="px-4 py-3 text-right">Kalan</th>
+              </tr>
+            </thead>
+            <tbody>
+              {trace.map((t) => (
+                <tr key={t.id} className="border-t border-gray-100">
+                  <td className="px-4 py-3 font-medium text-gray-800">{t.stockItemName}</td>
+                  <td className="px-4 py-3 text-gray-600">{t.origin || '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{t.supplierName || '—'}</td>
+                  <td className="px-4 py-3 text-gray-500">{d(t.receivedAt)}</td>
+                  <td className="px-4 py-3 text-gray-500">{d(t.expiryDate)}</td>
+                  <td className="px-4 py-3 text-right">
+                    {num(t.initialQty)} {t.unit}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {num(t.consumed)} {t.unit}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {num(t.remainingQty)} {t.unit}
+                  </td>
+                </tr>
+              ))}
+              {trace.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-6 text-center text-gray-400">
+                    Henüz parti kaydı yok.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
 function Recipes() {
   const [products, setProducts] = useState<Product[]>([]);
   const [editing, setEditing] = useState<Product | null>(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  function load() {
     api
       .get<Product[]>('/menu/products')
       .then(setProducts)
       .catch((e) => setError(e.message));
-  }, []);
+  }
+  useEffect(load, []);
+
+  const eksik = products.filter((p) => !p.hasRecipe).length;
 
   return (
     <>
@@ -393,20 +678,49 @@ function Recipes() {
         Bir ürünün reçetesini tanımlayın; o ürün satılınca hammaddeler otomatik
         düşer.
       </p>
+
+      {/* Reçetesi olmayan ürün satılınca stoktan hiçbir şey düşmez. Bu sessiz
+          davranış "stok çalışmıyor" sanılmasına yol açıyordu — açıkça söyle. */}
+      {eksik > 0 && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning-light px-3 py-2.5 text-sm">
+          <span className="text-warning">⚠</span>
+          <span className="text-ink">
+            <b>{eksik} ürünün reçetesi yok.</b> Bu ürünler satıldığında stoktan
+            hiçbir şey düşmez. Aşağıda “reçete yok” işaretli olanlar.
+          </span>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {products.map((p) => (
           <button
             key={p.id}
             onClick={() => setEditing(p)}
-            className="rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm hover:border-brand"
+            className={`rounded-xl border bg-white p-4 text-left shadow-sm hover:border-brand ${
+              p.hasRecipe ? 'border-gray-200' : 'border-warning/40'
+            }`}
           >
             <div className="font-medium text-gray-800">{p.name}</div>
-            <div className="mt-1 text-xs text-brand">reçeteyi düzenle →</div>
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <span className="text-xs text-brand">reçeteyi düzenle →</span>
+              {!p.hasRecipe && (
+                <span className="shrink-0 rounded bg-warning-light px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+                  reçete yok
+                </span>
+              )}
+            </div>
           </button>
         ))}
       </div>
       {editing && (
-        <RecipeEditor product={editing} onClose={() => setEditing(null)} />
+        <RecipeEditor
+          product={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            load(); // "reçete yok" rozeti kaydedince güncellensin
+          }}
+        />
       )}
     </>
   );
@@ -415,9 +729,11 @@ function Recipes() {
 function RecipeEditor({
   product,
   onClose,
+  onSaved,
 }: {
   product: Product;
   onClose: () => void;
+  onSaved: () => void;
 }) {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [lines, setLines] = useState<{ stockItemId: string; quantity: number }[]>(
@@ -442,7 +758,10 @@ function RecipeEditor({
 
   function addLine() {
     if (stockItems.length === 0) return;
-    setLines((p) => [...p, { stockItemId: stockItems[0].id, quantity: 1 }]);
+    // Boş başla: eskiden listenin ilk hammaddesi otomatik seçiliyordu ve
+    // kullanıcı değiştirmeyi unutunca yanlış reçete kaydediliyordu.
+    // Combobox boşken "Hammadde ara…" yazar, seçim bilinçli olur.
+    setLines((p) => [...p, { stockItemId: '', quantity: 1 }]);
   }
   function setLine(i: number, patch: Partial<{ stockItemId: string; quantity: number }>) {
     setLines((p) => p.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
@@ -452,13 +771,17 @@ function RecipeEditor({
   }
 
   async function save() {
+    // Seçilmemiş satır (stockItemId boş) sunucuda 500'e yol açardı — burada ele.
+    const gecerli = lines.filter((l) => l.stockItemId && l.quantity > 0);
+    if (lines.length > 0 && gecerli.length === 0) {
+      setErr('En az bir hammadde seçip miktar girin.');
+      return;
+    }
     setBusy(true);
     setErr('');
     try {
-      await api.put(`/stock/recipe/${product.id}`, {
-        items: lines.filter((l) => l.quantity > 0),
-      });
-      onClose();
+      await api.put(`/stock/recipe/${product.id}`, { items: gecerli });
+      onSaved();
     } catch (e: any) {
       setErr(e.message);
       setBusy(false);
@@ -493,26 +816,26 @@ function RecipeEditor({
               const si = stockItems.find((s) => s.id === l.stockItemId);
               return (
                 <div key={i} className="flex items-center gap-2">
-                  <Select
+                  <Combobox
+                    className="min-w-0 flex-1"
                     value={l.stockItemId}
-                    onChange={(e) => setLine(i, { stockItemId: e.target.value })}
-                    className="flex-1"
-                  >
-                    {stockItems.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.unit})
-                      </option>
-                    ))}
-                  </Select>
-                  <Input
-                    type="number"
-                    value={l.quantity}
-                    onChange={(e) =>
-                      setLine(i, { quantity: Number(e.target.value) })
-                    }
-                    className="w-24"
+                    onChange={(v) => setLine(i, { stockItemId: v })}
+                    placeholder="Hammadde ara…"
+                    emptyText="Bu isimde hammadde yok"
+                    options={stockItems.map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                      group: s.group || undefined,
+                      hint: s.unit,
+                    }))}
                   />
-                  <span className="w-8 text-xs text-gray-400">{si?.unit}</span>
+                  <NumberInput
+                    value={l.quantity}
+                    onChange={(n) => setLine(i, { quantity: n })}
+                    placeholder="0"
+                    className="w-24 shrink-0"
+                  />
+                  <span className="w-8 shrink-0 text-xs text-gray-400">{si?.unit}</span>
                   <button
                     onClick={() => removeLine(i)}
                     className="text-red-500 hover:text-red-700"

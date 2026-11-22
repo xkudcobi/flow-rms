@@ -69,7 +69,9 @@ export default function CallsPanel() {
   if (calls.length === 0) return null;
 
   return (
-    <div className="fixed right-4 top-4 z-[60] w-72 space-y-2">
+    // Mobilde top-16: sabit üst bar (h-14) burada duruyor, top-4 olsaydı
+    // çağrı kartları hamburger menünün üstünü kapatırdı.
+    <div className="fixed right-4 top-16 z-[60] w-72 max-w-[calc(100vw-2rem)] space-y-2 md:top-4">
       {calls.map((c) => {
         const isBill = c.type === 'HESAP';
         return (

@@ -139,12 +139,19 @@ export class MenuService {
   }
 
   // --- Ürünler ---
-  listProducts(includeInactive = false) {
-    return this.prisma.product.findMany({
+  async listProducts(includeInactive = false) {
+    // _count ile reçete satır sayısı tek sorguda gelir (ürün başına ayrı sorgu
+    // atmadan). hasRecipe: reçetesi olmayan ürün satılınca stok düşmez —
+    // bunu ekranda göstermek için gerekiyor.
+    const products = await this.prisma.product.findMany({
       where: includeInactive ? {} : { active: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      include: { category: true },
+      include: { category: true, _count: { select: { recipeItems: true } } },
     });
+    return products.map(({ _count, ...p }) => ({
+      ...p,
+      hasRecipe: _count.recipeItems > 0,
+    }));
   }
 
   createProduct(data: {

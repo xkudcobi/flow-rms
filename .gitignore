@@ -7,6 +7,8 @@ dist/
 build/
 web/dist/
 server/dist/
+# TypeScript artımlı derleme önbelleği — makineye özel, depoda işi yok.
+*.tsbuildinfo
 
 # env
 .env
@@ -41,3 +43,10 @@ graphify-out/
 # Cloudflare provisioning kimlik bilgileri (sistemi kuran tarafa özel).
 # Bu dosya sızarsa tüm işletmelerin tünelleri açılabilir — asla commit etmeyin.
 .cf-provision.env
+
+# Menü dışa aktarımları — işletmeye ait veri çıktısı, kaynak koda ait değil.
+menu-export/
+
+# Demo (Render) için üretilen Postgres şeması ve yerel deneme veritabanı
+server/prisma/pg/
+server/prisma/demo-test.db*

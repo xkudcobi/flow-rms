@@ -26,4 +26,10 @@ export class ReportsController {
   orders(@Query('date') date?: string) {
     return this.reports.dayOrders(date);
   }
+
+  // Maliyet raporları (tarih aralığı): saf ürün/stok + toplam işletme maliyeti.
+  @Get('cost')
+  cost(@Query('from') from?: string, @Query('to') to?: string) {
+    return this.reports.costReport(from, to);
+  }
 }

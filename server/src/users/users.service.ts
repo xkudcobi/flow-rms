@@ -6,12 +6,15 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
 import { ALL_ROLES } from '../auth/roles';
+import { isPageKey } from '../auth/pages';
+import { assertNotDemoAccount } from '../config/demo';
 
 interface CreateUserInput {
   username: string;
   fullName: string;
   password: string;
   role: string;
+  extraPages?: string[];
 }
 
 interface UpdateUserInput {
@@ -19,6 +22,7 @@ interface UpdateUserInput {
   password?: string;
   role?: string;
   active?: boolean;
+  extraPages?: string[];
 }
 
 const SAFE = {
@@ -27,6 +31,7 @@ const SAFE = {
   fullName: true,
   role: true,
   active: true,
+  extraPages: true,
   createdAt: true,
 } as const;
 
@@ -34,11 +39,12 @@ const SAFE = {
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll() {
-    return this.prisma.user.findMany({
+  async findAll() {
+    const rows = await this.prisma.user.findMany({
       select: SAFE,
       orderBy: { createdAt: 'asc' },
     });
+    return rows.map(withParsedPages);
   }
 
   async create(input: CreateUserInput) {
@@ -48,19 +54,24 @@ export class UsersService {
     });
     if (exists) throw new BadRequestException('Bu kullanıcı adı zaten var');
 
-    return this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         username: input.username,
         fullName: input.fullName,
         role: input.role,
         password: await AuthService.hashPassword(input.password),
+        extraPages: serializePages(input.extraPages),
       },
       select: SAFE,
     });
+    return withParsedPages(user);
   }
 
   async update(id: string, input: UpdateUserInput) {
-    await this.getOrThrow(id);
+    const existing = await this.getOrThrow(id);
+    if (input.password || input.role || input.active === false) {
+      assertNotDemoAccount(existing.username);
+    }
     if (input.role) this.assertRole(input.role);
 
     const data: any = {
@@ -71,17 +82,23 @@ export class UsersService {
     if (input.password) {
       data.password = await AuthService.hashPassword(input.password);
     }
-    return this.prisma.user.update({ where: { id }, data, select: SAFE });
+    if (input.extraPages !== undefined) {
+      data.extraPages = serializePages(input.extraPages);
+    }
+    const user = await this.prisma.user.update({ where: { id }, data, select: SAFE });
+    return withParsedPages(user);
   }
 
   async remove(id: string) {
-    await this.getOrThrow(id);
+    const existing = await this.getOrThrow(id);
+    assertNotDemoAccount(existing.username);
     // Silmek yerine pasifleştir (adisyon/işlem geçmişi korunur).
-    return this.prisma.user.update({
+    const user = await this.prisma.user.update({
       where: { id },
       data: { active: false },
       select: SAFE,
     });
+    return withParsedPages(user);
   }
 
   private async getOrThrow(id: string) {
@@ -95,4 +112,25 @@ export class UsersService {
       throw new BadRequestException('Geçersiz rol');
     }
   }
+}
+
+// extraPages'i geçerli sayfa anahtarlarına süzüp JSON string'e çevirir (DB için).
+function serializePages(pages?: string[]): string | undefined {
+  if (pages === undefined) return undefined;
+  const valid = [...new Set(pages.filter((p) => isPageKey(p)))];
+  return JSON.stringify(valid);
+}
+
+// DB satırındaki extraPages string'ini istemciye dizi olarak döndürür.
+function withParsedPages<T extends { extraPages?: string | null }>(row: T) {
+  let extraPages: string[] = [];
+  if (row.extraPages) {
+    try {
+      const arr = JSON.parse(row.extraPages);
+      if (Array.isArray(arr)) extraPages = arr.filter((x) => typeof x === 'string');
+    } catch {
+      // bozuk JSON → boş
+    }
+  }
+  return { ...row, extraPages };
 }

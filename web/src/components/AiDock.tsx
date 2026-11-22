@@ -109,7 +109,9 @@ export default function AiDock() {
       </button>
 
       {open && (
-        <div className="fixed bottom-24 right-5 z-40 flex h-[520px] w-[370px] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-2xl border border-line bg-surface-card shadow-2xl">
+        // max-h: sabit 520px küçük telefonlarda (ör. 667px yükseklik) alttaki
+        // butonun ve üst barın altında kalıp taşıyordu.
+        <div className="fixed bottom-24 right-5 z-40 flex h-[520px] max-h-[calc(100vh-9rem)] w-[370px] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-2xl border border-line bg-surface-card shadow-2xl">
           {/* Başlık */}
           <div className="flex items-center justify-between border-b border-line bg-surface-low px-4 py-3">
             <div className="flex items-center gap-2">

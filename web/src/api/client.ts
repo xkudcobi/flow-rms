@@ -58,10 +58,35 @@ async function request<T>(
   return JSON.parse(text) as T;
 }
 
+// Dosya yükleme (multipart/form-data). Content-Type'ı ELLE ayarlamayız —
+// tarayıcı boundary ile birlikte kendisi koyar.
+async function upload<T>(path: string, form: FormData): Promise<T> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(`/api${path}`, { method: 'POST', headers, body: form });
+  if (res.status === 401) setToken(null);
+  if (!res.ok) {
+    let msg = `Hata (${res.status})`;
+    try {
+      const data = await res.json();
+      msg = Array.isArray(data.message) ? data.message.join(', ') : data.message || msg;
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(res.status, msg);
+  }
+  const text = await res.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
+}
+
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
+  upload,
 };

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bot, RefreshCw, Send, Sparkles, TrendingUp } from 'lucide-react';
+import { Bot, RefreshCw, Send, Sparkles, TrendingUp, Lightbulb } from 'lucide-react';
+import Modal from '../components/Modal';
+import { Field, Input, Select } from '../components/ui';
 import {
   Area,
   AreaChart,
@@ -48,6 +50,7 @@ const SEV: Record<string, string> = {
 export default function OngorulerPage() {
   const [ov, setOv] = useState<Overview | null>(null);
   const [error, setError] = useState('');
+  const [view, setView] = useState<'analiz' | 'tavsiyeler'>('analiz');
 
   useEffect(() => {
     api.get<Overview>('/insights').then(setOv).catch((e) => setError(e.message));
@@ -55,7 +58,7 @@ export default function OngorulerPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-5 flex items-center gap-2">
+      <div className="mb-4 flex items-center gap-2">
         <Sparkles className="text-brand" size={22} />
         <div>
           <h1 className="text-2xl font-bold text-ink">Öngörüler & Asistan</h1>
@@ -63,6 +66,19 @@ export default function OngorulerPage() {
         </div>
       </div>
 
+      <div className="mb-5 flex gap-1 border-b border-line">
+        <TabBtn active={view === 'analiz'} onClick={() => setView('analiz')}>
+          Analiz & Asistan
+        </TabBtn>
+        <TabBtn active={view === 'tavsiyeler'} onClick={() => setView('tavsiyeler')}>
+          Personel Tavsiyeleri
+        </TabBtn>
+      </div>
+
+      {view === 'tavsiyeler' ? (
+        <StaffRecoManager />
+      ) : (
+      <>
       {error && <p className="mb-3 text-danger">{error}</p>}
       {!ov ? (
         <p className="text-muted">Yükleniyor…</p>
@@ -123,7 +139,246 @@ export default function OngorulerPage() {
           </div>
         </div>
       )}
+      </>
+      )}
     </div>
+  );
+}
+
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+        active ? 'border-brand text-brand' : 'border-transparent text-muted hover:text-ink'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Patron/Müdür: otomatik + elle tavsiyeleri yönetir (üret, onayla, reddet, ekle).
+interface ManagerReco {
+  id: string;
+  targetType: string;
+  targetRole?: string | null;
+  title: string;
+  body: string;
+  severity: string;
+  source: string;
+  status: string;
+  createdAt: string;
+}
+const ROLE_LABELS: Record<string, string> = {
+  PATRON: 'Patron',
+  MUDUR: 'Müdür',
+  KASIYER: 'Kasiyer',
+  GARSON: 'Garson',
+  MUTFAK: 'Mutfak',
+};
+function StaffRecoManager() {
+  const [recos, setRecos] = useState<ManagerReco[]>([]);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+
+  function load() {
+    // Liste çekilirken backend otomatik üretim de dener (SKT yaklaşanlar vb.).
+    api.get<ManagerReco[]>('/staff-recos').then(setRecos).catch((e) => setError(e.message));
+  }
+  useEffect(load, []);
+
+  async function generate() {
+    setBusy(true);
+    try {
+      await api.post('/staff-recos/generate', {});
+      load();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function approve(id: string) {
+    await api.patch(`/staff-recos/${id}/approve`, {});
+    load();
+  }
+  async function reject(id: string) {
+    await api.patch(`/staff-recos/${id}/reject`, {});
+    load();
+  }
+
+  const pending = recos.filter((r) => r.status === 'BEKLIYOR');
+  const approved = recos.filter((r) => r.status === 'ONAYLANDI');
+
+  function target(r: ManagerReco) {
+    if (r.targetType === 'ROLE') return ROLE_LABELS[r.targetRole || ''] || r.targetRole;
+    if (r.targetType === 'GROUP') return 'Grup';
+    return 'Kişi';
+  }
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted">
+          Personele yönelik öneriler. Onayladıklarınız ilgili personelin bildirimine
+          ve "Tavsiyeler" sayfasına düşer.
+        </p>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={generate} disabled={busy}>
+            <RefreshCw size={15} className="mr-1 inline" />
+            {busy ? 'Üretiliyor…' : 'Otomatik Üret'}
+          </Button>
+          <Button onClick={() => setAddOpen(true)}>+ Tavsiye</Button>
+        </div>
+      </div>
+
+      {error && <p className="mb-3 text-danger">{error}</p>}
+
+      <section className="mb-6">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
+          Onay Bekleyen ({pending.length})
+        </h2>
+        {pending.length === 0 ? (
+          <p className="text-sm text-faint">Bekleyen tavsiye yok. "Otomatik Üret" ile öneri çıkarın.</p>
+        ) : (
+          <div className="space-y-2">
+            {pending.map((r) => (
+              <div key={r.id} className="flex items-start gap-3 rounded-lg border border-line bg-surface-card p-3">
+                <Lightbulb size={18} className="mt-0.5 shrink-0 text-brand" />
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-ink">{r.title}</div>
+                  <p className="text-sm text-muted">{r.body}</p>
+                  <div className="mt-1 flex gap-2 text-xs text-faint">
+                    <span className="rounded bg-surface-low px-1.5 py-0.5">→ {target(r)}</span>
+                    <span>{r.source === 'AUTO' ? 'otomatik' : 'elle'}</span>
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <button
+                    onClick={() => approve(r.id)}
+                    className="rounded-lg bg-brand px-2.5 py-1.5 text-xs font-medium text-white hover:bg-brand-dark"
+                  >
+                    Onayla
+                  </button>
+                  <button
+                    onClick={() => reject(r.id)}
+                    className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted hover:text-red-600"
+                  >
+                    Reddet
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {approved.length > 0 && (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
+            Onaylanan ({approved.length})
+          </h2>
+          <div className="space-y-2 opacity-70">
+            {approved.slice(0, 20).map((r) => (
+              <div key={r.id} className="rounded-lg border border-line bg-surface-card p-3">
+                <div className="font-medium text-ink">{r.title}</div>
+                <div className="mt-0.5 text-xs text-faint">→ {target(r)}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {addOpen && (
+        <RecoForm
+          onClose={() => setAddOpen(false)}
+          onSaved={() => {
+            setAddOpen(false);
+            load();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function RecoForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [targetRole, setTargetRole] = useState('GARSON');
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [severity, setSeverity] = useState('info');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function save() {
+    setBusy(true);
+    setErr('');
+    try {
+      await api.post('/staff-recos', {
+        targetType: 'ROLE',
+        targetRole,
+        title,
+        body,
+        severity,
+      });
+      onSaved();
+    } catch (e: any) {
+      setErr(e.message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      title="Yeni Tavsiye"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>İptal</Button>
+          <Button onClick={save} disabled={busy || !title.trim() || !body.trim()}>
+            {busy ? 'Kaydediliyor…' : 'Ekle'}
+          </Button>
+        </>
+      }
+    >
+      {err && <p className="mb-2 text-sm text-red-600">{err}</p>}
+      <Field label="Hedef Personel (rol)">
+        <Select value={targetRole} onChange={(e) => setTargetRole(e.target.value)}>
+          {Object.entries(ROLE_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </Select>
+      </Field>
+      <Field label="Başlık">
+        <Input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+      </Field>
+      <Field label="Açıklama">
+        <textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={3}
+          className="w-full rounded border border-line bg-surface-card px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+        />
+      </Field>
+      <Field label="Önem">
+        <Select value={severity} onChange={(e) => setSeverity(e.target.value)}>
+          <option value="info">Bilgi</option>
+          <option value="warning">Uyarı</option>
+          <option value="danger">Acil</option>
+        </Select>
+      </Field>
+    </Modal>
   );
 }
 
@@ -244,7 +499,12 @@ function Assistant() {
           </button>
         </div>
       </div>
-      {status && !status.enabled ? (
+      {status && !status.enabled && import.meta.env.VITE_DEMO === '1' ? (
+        <div className="rounded-lg bg-surface-low p-4 text-sm text-muted">
+          <p className="mb-1 font-medium text-ink">Yapay zekâ asistanı bu demoda kapalı</p>
+          <p>Gerçek kurulumda asistan restoranın kendi bilgisayarında çalışır ve işletme verinizle sohbet eder (ör. "bu ay en çok ne sattık?"). Veri dışarı çıkmaz. Yukarıdaki öngörüler ve öneriler asistandan bağımsız çalışır.</p>
+        </div>
+      ) : status && !status.enabled ? (
         <div className="rounded-lg bg-surface-low p-4 text-sm text-muted">
           <p className="mb-1 font-medium text-ink">Asistan henüz bağlı değil (opsiyonel özellik)</p>
           <p>{status.reason}</p>

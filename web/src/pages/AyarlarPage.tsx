@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Save } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react';
 import { api } from '../api/client';
 import { Button, Field, Input } from '../components/ui';
 
@@ -11,6 +12,8 @@ interface Settings {
   address?: string | null;
   phone?: string | null;
   note?: string | null;
+  qrOrderingEnabled: boolean;
+  attendanceQrEnabled: boolean;
 }
 
 const GUNLER = [
@@ -61,6 +64,8 @@ export default function AyarlarPage() {
         address: s.address || null,
         phone: s.phone || null,
         note: s.note || null,
+        qrOrderingEnabled: s.qrOrderingEnabled,
+        attendanceQrEnabled: s.attendanceQrEnabled,
       });
       setS(updated);
       setSaved(true);
@@ -138,6 +143,80 @@ export default function AyarlarPage() {
               ))}
             </div>
           </div>
+        </div>
+
+        <div className="rounded-lg border border-line bg-surface-card p-5">
+          <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted">
+            QR Menü
+          </h2>
+          <p className="mb-3 text-xs text-faint">
+            Müşteri masadaki karekodu okuttuğunda ne yapabilsin?
+          </p>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={s.qrOrderingEnabled}
+              onChange={(e) => set('qrOrderingEnabled', e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
+            />
+            <span>
+              <span className="block text-sm font-medium text-ink">
+                QR'dan sipariş alınsın
+              </span>
+              <span className="mt-0.5 block text-xs text-muted">
+                Kapatırsanız müşteri menüyü ve kendi hesabını görür, garson
+                çağırabilir — ama sipariş gönderemez. Siparişi yalnız garsonla
+                almak isteyen işletmeler için.
+              </span>
+            </span>
+          </label>
+        </div>
+
+        <div className="rounded-lg border border-line bg-surface-card p-5">
+          <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted">
+            Personel Giriş/Çıkış Takip QR
+          </h2>
+          <p className="mb-3 text-xs text-faint">
+            Açarsanız personel işe gelince/çıkarken bir QR okutup mesai damgası
+            bırakır — çalışılan saat takibi için. İsteğe bağlıdır.
+          </p>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={s.attendanceQrEnabled}
+              onChange={(e) => set('attendanceQrEnabled', e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
+            />
+            <span>
+              <span className="block text-sm font-medium text-ink">
+                Personel giriş/çıkış (mesai) takibi açık
+              </span>
+              <span className="mt-0.5 block text-xs text-muted">
+                Açıkken menüde "Mesai" görünür ve aşağıdaki QR ile personel
+                giriş/çıkış yapabilir.
+              </span>
+            </span>
+          </label>
+
+          {s.attendanceQrEnabled && (
+            <div className="mt-4 flex flex-col items-center gap-2 rounded-lg border border-line bg-surface-low p-4">
+              <QRCodeCanvas
+                value={`${window.location.origin}/mesai`}
+                size={160}
+                includeMargin
+              />
+              <p className="text-center text-xs text-muted">
+                Personel kendi telefonunda giriş yaptıktan sonra bu karekodu
+                okutup mesai giriş/çıkış yapar.
+              </p>
+              <p className="text-center text-xs text-faint break-all">
+                {window.location.origin}/mesai
+              </p>
+              <Button variant="secondary" onClick={() => window.print()}>
+                Yazdır
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="rounded-lg border border-line bg-surface-card p-5">

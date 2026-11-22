@@ -30,6 +30,10 @@ import { SettingsModule } from './settings/settings.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ImportModule } from './import/import.module';
+import { TasksModule } from './tasks/tasks.module';
+import { StaffRecosModule } from './staff-recos/staff-recos.module';
+import { AttendanceModule } from './attendance/attendance.module';
+import { OcrModule } from './ocr/ocr.module';
 import { GraphMemoryModule } from './graph-memory/graph-memory.module';
 import { AppController } from './app.controller';
 
@@ -85,6 +89,10 @@ const throttlerModule = ThrottlerModule.forRoot([
     ReviewsModule,
     NotificationsModule,
     ImportModule,
+    TasksModule,
+    StaffRecosModule,
+    AttendanceModule,
+    OcrModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -11,6 +11,8 @@ export interface SettingsInput {
   address?: string | null;
   phone?: string | null;
   note?: string | null;
+  qrOrderingEnabled?: boolean;
+  attendanceQrEnabled?: boolean;
 }
 
 @Injectable()
@@ -37,6 +39,8 @@ export class SettingsService {
       address: input.address,
       phone: input.phone,
       note: input.note,
+      qrOrderingEnabled: input.qrOrderingEnabled,
+      attendanceQrEnabled: input.attendanceQrEnabled,
     };
     return this.prisma.businessSetting.upsert({
       where: { id: SINGLETON },

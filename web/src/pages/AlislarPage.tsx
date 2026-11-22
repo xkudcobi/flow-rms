@@ -1,17 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { X, ScanLine } from 'lucide-react';
 import { api } from '../api/client';
 import Modal from '../components/Modal';
-import { Button, Field, Input, Select } from '../components/ui';
+import Combobox from '../components/Combobox';
+import { Button, Field, Input, NumberInput, Select } from '../components/ui';
 import { downloadCSV, printHTML, esc } from '../utils/export';
 
 interface StockItem {
   id: string;
   name: string;
   unit: string;
+  group?: string | null;
+  perishable?: boolean;
 }
 interface Account {
   id: string;
   name: string;
+  taxNumber?: string | null;
+  taxOffice?: string | null;
+  phone?: string | null;
 }
 interface PItem {
   name: string;
@@ -139,8 +146,8 @@ export default function AlislarPage() {
 
       {error && <p className="mb-3 text-red-600">{error}</p>}
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <table className="w-full text-left text-sm">
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <table className="w-full min-w-[34rem] text-left text-sm">
           <thead className="bg-gray-50 text-gray-600">
             <tr>
               <th className="px-4 py-3">Tarih</th>
@@ -197,8 +204,12 @@ interface LineForm {
   unit: string;
   unitPrice: number;
   vatRate: number;
+  // İzlenebilirlik (perishable stok kaleminde): menşei + SKT
+  origin: string;
+  expiryDate: string;
+  perishable?: boolean;
 }
-const emptyLine = (): LineForm => ({ name: '', stockItemId: '', quantity: 1, unit: 'adet', unitPrice: 0, vatRate: 1 });
+const emptyLine = (): LineForm => ({ name: '', stockItemId: '', quantity: 1, unit: 'adet', unitPrice: 0, vatRate: 1, origin: '', expiryDate: '' });
 
 function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [suppliers, setSuppliers] = useState<Account[]>([]);
@@ -207,12 +218,22 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   const [invoiceNo, setInvoiceNo] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(today());
   const [category, setCategory] = useState('GIDA');
+  const [note, setNote] = useState('');
   const [paymentStatus, setPaymentStatus] = useState('PESIN');
   const [paymentMethod, setPaymentMethod] = useState('NAKIT');
   const [lines, setLines] = useState<LineForm[]>([emptyLine()]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [newSupOpen, setNewSupOpen] = useState(false);
+  // Satırdan yeni stok kalemi / menü ürünü oluşturma — hangi satır için açıldı.
+  const [newItemFor, setNewItemFor] = useState<number | null>(null);
+  // Fatura tarama (OCR)
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanNote, setScanNote] = useState('');
+
+  // Seçili tedarikçinin vergi bilgileri; seçince otomatik görünür.
+  const supplier = suppliers.find((s) => s.id === supplierId);
 
   function loadSuppliers() {
     return api
@@ -220,17 +241,80 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
       .then(setSuppliers)
       .catch(() => undefined);
   }
+  function loadStock() {
+    return api
+      .get<StockItem[]>('/stock/items')
+      .then(setStockItems)
+      .catch(() => undefined);
+  }
   useEffect(() => {
     loadSuppliers();
-    api.get<StockItem[]>('/stock/items').then(setStockItems).catch(() => undefined);
+    loadStock();
   }, []);
 
   function setLine(i: number, patch: Partial<LineForm>) {
     setLines((p) => p.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   }
+  // Fatura görselini tara → dönen taslakla formu doldur (kullanıcı düzeltip kaydeder).
+  async function scanInvoice(file: File) {
+    setScanning(true);
+    setScanNote('');
+    setErr('');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const draft = await api.upload<{
+        provider: string;
+        confidence: number;
+        supplierName?: string;
+        invoiceNo?: string;
+        invoiceDate?: string;
+        items: { name: string; quantity?: number; unitPrice?: number; vatRate?: number }[];
+        note?: string;
+      }>('/purchases/ocr', form);
+
+      if (draft.invoiceNo) setInvoiceNo(draft.invoiceNo);
+      if (draft.invoiceDate) setInvoiceDate(draft.invoiceDate);
+      // Tedarikçiyi ada göre eşleştir (varsa seç).
+      if (draft.supplierName) {
+        const match = suppliers.find(
+          (s) => s.name.toLocaleLowerCase('tr') === draft.supplierName!.toLocaleLowerCase('tr'),
+        );
+        if (match) setSupplierId(match.id);
+      }
+      if (draft.items?.length) {
+        setLines(
+          draft.items.map((it) => ({
+            ...emptyLine(),
+            name: it.name,
+            quantity: it.quantity && it.quantity > 0 ? it.quantity : 1,
+            unitPrice: it.unitPrice || 0,
+            vatRate: it.vatRate ?? 1,
+          })),
+        );
+      }
+      const detected = draft.supplierName ? ` · Tedarikçi: ${draft.supplierName}` : '';
+      setScanNote(
+        draft.note
+          ? draft.note
+          : `Tarama tamamlandı (güven ~%${Math.round((draft.confidence || 0) * 100)})${detected}. Lütfen alanları kontrol edip düzeltin.`,
+      );
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setScanning(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
+
   function pickStock(i: number, stockItemId: string) {
     const si = stockItems.find((s) => s.id === stockItemId);
-    setLine(i, si ? { stockItemId, name: si.name, unit: si.unit } : { stockItemId: '' });
+    setLine(
+      i,
+      si
+        ? { stockItemId, name: si.name, unit: si.unit, perishable: si.perishable }
+        : { stockItemId: '', perishable: false },
+    );
   }
 
   const totals = useMemo(() => {
@@ -253,6 +337,7 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
         invoiceNo: invoiceNo || undefined,
         invoiceDate,
         category,
+        note: note.trim() || undefined,
         paymentStatus,
         paymentMethod: paymentStatus === 'PESIN' ? paymentMethod : undefined,
         items: valid.map((l) => ({
@@ -262,6 +347,8 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
           unit: l.unit,
           unitPrice: Number(l.unitPrice),
           vatRate: Number(l.vatRate),
+          origin: l.perishable && l.origin.trim() ? l.origin.trim() : undefined,
+          expiryDate: l.perishable && l.expiryDate ? l.expiryDate : undefined,
         })),
       });
       onSaved();
@@ -269,14 +356,52 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   }
 
   return (
-    <Modal open title="Yeni Alış Faturası" onClose={onClose}
-      footer={<>
-        <Button variant="secondary" onClick={onClose}>İptal</Button>
-        <Button onClick={save} disabled={busy}>{busy ? 'Kaydediliyor…' : 'Kaydet'}</Button>
-      </>}>
+    // Tam ekran: eskiden max-w-md bir modaldı — kalemler, KDV ve toplamlar o
+    // dar alana sığmıyordu. Artık fatura girişi kendi ekranında.
+    <div className="fixed inset-0 z-50 flex flex-col bg-surface">
+      <header className="flex shrink-0 items-center justify-between border-b border-line bg-surface-card px-4 py-3 md:px-6">
+        <h2 className="font-display text-lg font-semibold text-ink">
+          Yeni Alış Faturası
+        </h2>
+        <button
+          onClick={onClose}
+          aria-label="Kapat"
+          className="rounded p-1.5 text-faint transition-colors hover:bg-surface-high hover:text-ink"
+        >
+          <X size={20} />
+        </button>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="mx-auto max-w-5xl">
       {err && <p className="mb-2 text-sm text-red-600">{err}</p>}
 
-      <div className="grid grid-cols-2 gap-3">
+      {/* Fatura tarama (OCR) — foto/dosya yükle, taslak forma dolsun */}
+      <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-dashed border-brand/40 bg-brand/5 p-3">
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) scanInvoice(f);
+          }}
+        />
+        <Button
+          variant="secondary"
+          onClick={() => fileRef.current?.click()}
+          disabled={scanning}
+        >
+          <ScanLine size={16} className="mr-1 inline" />
+          {scanning ? 'Taranıyor…' : 'Fatura Tara (foto/dosya)'}
+        </Button>
+        <span className="text-xs text-muted">
+          {scanNote || 'Fatura fotoğrafını yükleyin; alanlar otomatik doldurulsun (kontrol edip kaydedin).'}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Tedarikçi / Market">
           <div className="flex gap-2">
             <Select
@@ -314,6 +439,34 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
         </Field>
       </div>
 
+      {/* Tedarikçi seçilince vergi bilgileri kendiliğinden görünür — cari
+          kartında zaten kayıtlı, kullanıcı tekrar yazmasın/aramasın. */}
+      {supplier && (supplier.taxNumber || supplier.taxOffice || supplier.phone) && (
+        <div className="mb-3 flex flex-wrap gap-x-6 gap-y-1 rounded-lg border border-line bg-surface-card px-3 py-2 text-xs">
+          {supplier.taxNumber && (
+            <span className="text-muted">
+              Vergi No: <b className="tabular text-ink">{supplier.taxNumber}</b>
+            </span>
+          )}
+          {supplier.taxOffice && (
+            <span className="text-muted">
+              Vergi Dairesi: <b className="text-ink">{supplier.taxOffice}</b>
+            </span>
+          )}
+          {supplier.phone && (
+            <span className="text-muted">
+              Tel: <b className="text-ink">{supplier.phone}</b>
+            </span>
+          )}
+        </div>
+      )}
+      {supplier && !supplier.taxNumber && (
+        <p className="mb-3 text-xs text-faint">
+          Bu tedarikçinin vergi numarası kayıtlı değil — Cari ekranından
+          ekleyebilirsiniz.
+        </p>
+      )}
+
       <div className="mb-2 mt-2 flex gap-2">
         <button onClick={() => setPaymentStatus('PESIN')} className={`flex-1 rounded-lg border-2 py-1.5 text-sm ${paymentStatus === 'PESIN' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200'}`}>Peşin</button>
         <button onClick={() => setPaymentStatus('ACIK')} className={`flex-1 rounded-lg border-2 py-1.5 text-sm ${paymentStatus === 'ACIK' ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200'}`}>Açık (veresiye → tedarikçi cariye borç)</button>
@@ -341,42 +494,103 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
 
       {/* Kalemler */}
       <div className="mb-2 mt-3 text-xs font-semibold uppercase text-gray-400">Kalemler</div>
-      <div className="max-h-64 space-y-2 overflow-auto">
+      <div className="space-y-2">
         {lines.map((l, i) => {
           const net = l.quantity * l.unitPrice;
           const total = net * (1 + l.vatRate / 100);
           return (
-            <div key={i} className="rounded-lg border border-gray-200 p-2">
-              <div className="mb-1 flex gap-2">
-                <Select value={l.stockItemId} onChange={(e) => pickStock(i, e.target.value)} className="w-40 text-xs">
-                  <option value="">Stok yok (serbest)</option>
-                  {stockItems.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </Select>
-                <Input value={l.name} onChange={(e) => setLine(i, { name: e.target.value })} placeholder="Ürün adı" className="flex-1" />
-                <button onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))} className="text-red-500">✕</button>
+            <div key={i} className="rounded-lg border border-line bg-surface-card p-3">
+              <div className="mb-2 flex flex-col gap-2 sm:flex-row">
+                <div className="flex gap-2 sm:w-64">
+                  <Combobox
+                    className="min-w-0 flex-1"
+                    value={l.stockItemId}
+                    onChange={(v) => pickStock(i, v)}
+                    placeholder="Stok kalemi (opsiyonel)"
+                    emptyText="Bulunamadı — “+ Yeni” ile ekleyin"
+                    options={stockItems.map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                      group: s.group || undefined,
+                      hint: s.unit,
+                    }))}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setNewItemFor(i)}
+                    className="shrink-0 whitespace-nowrap rounded-lg border border-brand px-2 text-sm font-medium text-brand hover:bg-brand/5"
+                    title="Yeni stok kalemi veya menü ürünü oluştur"
+                  >
+                    + Yeni
+                  </button>
+                </div>
+                <Input value={l.name} onChange={(e) => setLine(i, { name: e.target.value })} placeholder="Ürün adı (faturada yazan)" className="flex-1" />
+                <button
+                  onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))}
+                  className="shrink-0 self-center px-1 text-red-500"
+                  title="Satırı sil"
+                >
+                  ✕
+                </button>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-sm">
-                <input type="number" value={l.quantity} onChange={(e) => setLine(i, { quantity: Number(e.target.value) })} className="w-16 rounded border border-gray-300 px-2 py-1" placeholder="adet" />
-                <Input value={l.unit} onChange={(e) => setLine(i, { unit: e.target.value })} className="w-16" placeholder="birim" />
+                <NumberInput value={l.quantity} onChange={(n) => setLine(i, { quantity: n })} className="w-20" placeholder="miktar" />
+                <Input value={l.unit} onChange={(e) => setLine(i, { unit: e.target.value })} className="w-20" placeholder="birim" />
                 <span className="text-gray-400">×</span>
-                <input type="number" value={l.unitPrice} onChange={(e) => setLine(i, { unitPrice: Number(e.target.value) })} className="w-24 rounded border border-gray-300 px-2 py-1" placeholder="birim fiyat" />
+                <NumberInput value={l.unitPrice} onChange={(n) => setLine(i, { unitPrice: n })} className="w-28" placeholder="birim fiyat" />
                 <span className="text-xs text-gray-400">KDV</span>
-                <Select value={l.vatRate} onChange={(e) => setLine(i, { vatRate: Number(e.target.value) })} className="w-16">
+                <Select value={l.vatRate} onChange={(e) => setLine(i, { vatRate: Number(e.target.value) })} className="w-20">
                   {VAT_RATES.map((r) => <option key={r} value={r}>%{r}</option>)}
                 </Select>
-                <span className="ml-auto font-semibold text-gray-700">{tl(total)}</span>
+                <span className="ml-auto font-semibold tabular text-gray-700">{tl(total)}</span>
               </div>
+              {l.perishable && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-brand/5 p-2 text-sm">
+                  <span className="text-xs font-medium text-brand">İzlenebilirlik:</span>
+                  <Input
+                    value={l.origin}
+                    onChange={(e) => setLine(i, { origin: e.target.value })}
+                    className="w-48"
+                    placeholder="menşei / alınış yeri"
+                  />
+                  <span className="text-xs text-gray-400">SKT</span>
+                  <Input
+                    type="date"
+                    value={l.expiryDate}
+                    onChange={(e) => setLine(i, { expiryDate: e.target.value })}
+                    className="w-40"
+                  />
+                </div>
+              )}
             </div>
           );
         })}
       </div>
       <button onClick={() => setLines((p) => [...p, emptyLine()])} className="mt-2 text-sm font-medium text-brand hover:underline">+ Kalem ekle</button>
 
-      <div className="mt-3 space-y-1 rounded-lg bg-gray-50 p-3 text-sm">
-        <div className="flex justify-between text-gray-600"><span>Ara Toplam (KDV hariç)</span><span>{tl(totals.net)}</span></div>
-        <div className="flex justify-between text-gray-600"><span>KDV</span><span>{tl(totals.vat)}</span></div>
-        <div className="flex justify-between text-lg font-bold text-gray-800"><span>Genel Toplam</span><span>{tl(totals.grand)}</span></div>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <Field label="Fatura Notu (opsiyonel)">
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+            placeholder="ör. 2 kasa çürük çıktı, iade edilecek · sonraki teslimat Salı"
+            className="w-full rounded border border-line bg-surface-card px-3 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-2 focus:ring-brand/30"
+          />
+        </Field>
+        <div className="space-y-1 self-start rounded-lg bg-surface-low p-3 text-sm">
+          <div className="flex justify-between text-gray-600"><span>Ara Toplam (KDV hariç)</span><span className="tabular">{tl(totals.net)}</span></div>
+          <div className="flex justify-between text-gray-600"><span>KDV</span><span className="tabular">{tl(totals.vat)}</span></div>
+          <div className="flex justify-between border-t border-line pt-1 text-lg font-bold text-gray-800"><span>Genel Toplam</span><span className="tabular">{tl(totals.grand)}</span></div>
+        </div>
       </div>
+        </div>
+      </div>
+
+      <footer className="flex shrink-0 justify-end gap-2 border-t border-line bg-surface-card px-4 py-3 md:px-6">
+        <Button variant="secondary" onClick={onClose}>İptal</Button>
+        <Button onClick={save} disabled={busy}>{busy ? 'Kaydediliyor…' : 'Kaydet'}</Button>
+      </footer>
 
       {newSupOpen && (
         <QuickSupplierForm
@@ -387,6 +601,196 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
             setNewSupOpen(false);
           }}
         />
+      )}
+      {newItemFor !== null && (
+        <NewItemForm
+          onClose={() => setNewItemFor(null)}
+          onCreated={async (created) => {
+            const i = newItemFor;
+            if (created.kind === 'stock') {
+              await loadStock();
+              setLine(i, {
+                stockItemId: created.id,
+                name: created.name,
+                unit: created.unit,
+                perishable: created.perishable,
+              });
+            } else {
+              // Menü ürünü stoğa bağlanmaz (PurchaseItem yalnız stockItemId
+              // tutar) — satır serbest metin olarak adıyla devam eder.
+              setLine(i, { stockItemId: '', name: created.name });
+            }
+            setNewItemFor(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+type CreatedItem =
+  | { kind: 'stock'; id: string; name: string; unit: string; perishable?: boolean }
+  | { kind: 'product'; id: string; name: string };
+
+/**
+ * Fatura satırından yeni kalem oluşturma.
+ *
+ * İki tür: hammadde (stok kalemi) → satıra bağlanır ve stok takibi yapılır;
+ * menü ürünü → satılacak ürün olarak menüye eklenir. Faturayı girerken
+ * "bu ürün sistemde yok" diye ekranı terk etmek gerekmesin.
+ */
+function NewItemForm({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (item: CreatedItem) => void;
+}) {
+  const [kind, setKind] = useState<'stock' | 'product'>('stock');
+  const [name, setName] = useState('');
+  const [unit, setUnit] = useState('adet');
+  const [group, setGroup] = useState('');
+  const [perishable, setPerishable] = useState(false);
+  const [price, setPrice] = useState(0);
+  const [categoryId, setCategoryId] = useState('');
+  const [cats, setCats] = useState<{ id: string; name: string }[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    api
+      .get<{ id: string; name: string }[]>('/menu/categories')
+      .then((c) => {
+        setCats(c);
+        if (c.length) setCategoryId(c[0].id);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  async function save() {
+    if (!name.trim()) return;
+    setBusy(true);
+    setErr('');
+    try {
+      if (kind === 'stock') {
+        const si = await api.post<{ id: string; name: string; unit: string; perishable?: boolean }>(
+          '/stock/items',
+          { name: name.trim(), unit, group: group.trim() || null, quantity: 0, criticalLevel: 0, perishable },
+        );
+        onCreated({ kind: 'stock', id: si.id, name: si.name, unit: si.unit, perishable: si.perishable });
+      } else {
+        if (!categoryId) {
+          setErr('Önce Menü ekranından bir kategori oluşturun.');
+          setBusy(false);
+          return;
+        }
+        const p = await api.post<{ id: string; name: string }>('/menu/products', {
+          name: name.trim(),
+          price: Number(price),
+          categoryId,
+        });
+        onCreated({ kind: 'product', id: p.id, name: p.name });
+      }
+    } catch (e: any) {
+      setErr(e.message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      title="Yeni Kalem Oluştur"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>İptal</Button>
+          <Button onClick={save} disabled={busy || !name.trim()}>
+            {busy ? 'Oluşturuluyor…' : 'Oluştur'}
+          </Button>
+        </>
+      }
+    >
+      {err && <p className="mb-2 text-sm text-red-600">{err}</p>}
+
+      <div className="mb-3 flex gap-2">
+        <button
+          type="button"
+          onClick={() => setKind('stock')}
+          className={`flex-1 rounded-lg border-2 px-3 py-2 text-left text-sm ${
+            kind === 'stock' ? 'border-brand bg-brand/10' : 'border-line'
+          }`}
+        >
+          <span className="block font-semibold text-ink">Stok Kalemi</span>
+          <span className="block text-xs text-muted">Hammadde — stok takibi yapılır</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setKind('product')}
+          className={`flex-1 rounded-lg border-2 px-3 py-2 text-left text-sm ${
+            kind === 'product' ? 'border-brand bg-brand/10' : 'border-line'
+          }`}
+        >
+          <span className="block font-semibold text-ink">Menü Ürünü</span>
+          <span className="block text-xs text-muted">Müşteriye satılacak ürün</span>
+        </button>
+      </div>
+
+      <Field label="Ad">
+        <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+      </Field>
+
+      {kind === 'stock' ? (
+        <>
+          <Field label="Birim">
+            <Select value={unit} onChange={(e) => setUnit(e.target.value)}>
+              {['adet', 'kg', 'gr', 'lt', 'cl', 'ml'].map((u) => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Grup (opsiyonel)">
+            <Input
+              value={group}
+              onChange={(e) => setGroup(e.target.value)}
+              placeholder="ör. Et Ürünleri, Kuru Gıda"
+            />
+          </Field>
+          <label className="flex items-start gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              checked={perishable}
+              onChange={(e) => setPerishable(e.target.checked)}
+              className="mt-0.5 accent-brand"
+            />
+            <span>
+              SKT / parti takibi (et, süt, tavuk…)
+              <span className="block text-xs text-muted">
+                Açıksa bu satırda menşei + son kullanma tarihi girilir.
+              </span>
+            </span>
+          </label>
+          <p className="text-xs text-faint">
+            Miktar 0 olarak açılır; bu faturadaki miktar kaydedince stoğa girer.
+          </p>
+        </>
+      ) : (
+        <>
+          <Field label="Satış Fiyatı">
+            <NumberInput value={price} onChange={setPrice} placeholder="0" />
+          </Field>
+          <Field label="Kategori">
+            <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+              {cats.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </Select>
+          </Field>
+          <p className="text-xs text-faint">
+            Menü ürünü stoğa bağlanmaz. Stok takibi için ayrıca bir stok kalemi
+            oluşturup ürüne reçete tanımlayın.
+          </p>
+        </>
       )}
     </Modal>
   );

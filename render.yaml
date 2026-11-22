@@ -1,0 +1,35 @@
+# Render Blueprint — FLOW herkese açık demo (ücretsiz plan).
+# Veritabanı: Neon (ücretsiz Postgres). DATABASE_URL'i Render panelinde siz girersiniz.
+services:
+  - type: web
+    name: flow-demo
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: mobil-ve-ozellikler
+    buildCommand: bash scripts/demo/render-build.sh
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DEMO_MODE
+        value: "1"
+      - key: REMOTE_MODE
+        value: "off"
+      - key: GRAPH_MEMORY
+        value: "off"
+      - key: AI_PROVIDER
+        value: none
+      - key: FISCAL_PROVIDER
+        value: simulation
+      - key: EINVOICE_PROVIDER
+        value: simulation
+      - key: REVIEWS_PROVIDER
+        value: none
+      - key: BUSINESS_NAME
+        value: Demo Bistro

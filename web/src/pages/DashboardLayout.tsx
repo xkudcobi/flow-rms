@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   ChevronDown,
+  Menu,
   Search,
   X,
   LayoutGrid,
@@ -25,14 +26,21 @@ import {
   Settings,
   Database,
   LogOut,
+  KeyRound,
+  ListChecks,
+  Lightbulb,
+  Clock,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth, AuthUser } from '../auth/AuthContext';
+import { canAccessRoute } from '../auth/pages';
+import { api } from '../api/client';
 import CallsPanel from '../components/CallsPanel';
 import AiDock from '../components/AiDock';
 import ReviewNotifier from '../components/ReviewNotifier';
 import NotificationBell from '../components/NotificationBell';
 import HelpButton from '../components/HelpButton';
+import ChangePasswordModal from '../components/ChangePasswordModal';
 import { useNotifications } from '../realtime/notifications';
 
 interface NavItem {
@@ -77,6 +85,9 @@ const NAV: NavGroup[] = [
   {
     title: 'Müşteri & Ekip',
     items: [
+      { to: '/gorevler', label: 'Görevler', icon: ListChecks },
+      { to: '/tavsiyeler', label: 'Tavsiyeler', icon: Lightbulb },
+      { to: '/mesai', label: 'Mesai', icon: Clock },
       { to: '/musteriler', label: 'Müşteriler', icon: Heart, roles: ['PATRON', 'MUDUR', 'KASIYER'] },
       { to: '/personel', label: 'Personel', icon: UserCog, roles: ['PATRON', 'MUDUR'] },
       { to: '/geribildirim', label: 'Geri Bildirim', icon: Star, roles: ['PATRON', 'MUDUR'] },
@@ -113,6 +124,38 @@ export default function DashboardLayout() {
     }
   });
   const [navQuery, setNavQuery] = useState('');
+  // Mobilde sidebar çekmece olarak açılır. Tablet/masaüstünde (md+) her zaman
+  // görünür olduğu için bu durum orada hiç kullanılmaz.
+  const [navOpen, setNavOpen] = useState(false);
+  const [pwdOpen, setPwdOpen] = useState(false);
+  // Mesai (QR giriş/çıkış) menü öğesi yalnızca ayardan açıksa görünür.
+  const [attendanceOn, setAttendanceOn] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    api
+      .get<{ attendanceQrEnabled?: boolean }>('/settings')
+      .then((s) => setAttendanceOn(!!s.attendanceQrEnabled))
+      .catch(() => undefined);
+  }, []);
+
+  // Sayfa değişince çekmeceyi kapat — mobilde bir menü seçtikten sonra
+  // çekmecenin açık kalması içeriği gizler.
+  useEffect(() => setNavOpen(false), [location.pathname]);
+
+  // Escape ile kapat + çekmece açıkken arkadaki sayfa kaymasın.
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setNavOpen(false);
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [navOpen]);
+
   function toggleGroup(title: string) {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -131,7 +174,10 @@ export default function DashboardLayout() {
     title: g.title,
     items: g.items.filter(
       (i) =>
-        (!i.roles || i.roles.includes(user.role)) &&
+        // Rol varsayılanı VEYA patronun kişiye özel verdiği sayfa izni (extraPages).
+        canAccessRoute(user, i.to) &&
+        // Mesai öğesi yalnızca ayardan açıksa.
+        (i.to !== '/mesai' || attendanceOn) &&
         (!searching || i.label.toLocaleLowerCase('tr').includes(q)),
     ),
   })).filter((g) => g.items.length > 0);
@@ -146,8 +192,40 @@ export default function DashboardLayout() {
 
   return (
     <div className="flex h-full">
-      {/* Sidebar — siyah, Signal Blue aktif durum */}
-      <aside className="flex w-64 flex-col bg-sidebar text-white">
+      {/* Mobil üst bar — yalnız telefonda. Sidebar burada çekmeceye taşındığı
+          için FLOW başlığı ve bildirimler bu barda durur. */}
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 bg-sidebar px-4 md:hidden">
+        <button
+          onClick={() => setNavOpen(true)}
+          aria-label="Menüyü aç"
+          className="-ml-1 rounded p-1.5 text-white transition-colors hover:bg-white/10"
+        >
+          <Menu size={22} strokeWidth={2} />
+        </button>
+        <h1 className="font-display text-lg font-bold tracking-tight text-white">FLOW</h1>
+        <div className="ml-auto">
+          <NotificationBell />
+        </div>
+      </header>
+
+      {/* Çekmece arkası karartma — dokununca kapanır. */}
+      {navOpen && (
+        <div
+          onClick={() => setNavOpen(false)}
+          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar — siyah, Signal Blue aktif durum.
+          Mobilde: ekran dışında duran, kaydırarak açılan çekmece (fixed).
+          md ve üstünde: eskisi gibi sabit sütun (static) — tablet/masaüstü
+          deneyimi hiç değişmez. */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-sidebar text-white transition-transform duration-200 md:static md:z-auto md:translate-x-0 ${
+          navOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div className="flex items-start justify-between px-5 pb-6 pt-5">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight text-white">
@@ -157,7 +235,17 @@ export default function DashboardLayout() {
               Restoran Yönetimi
             </p>
           </div>
-          <NotificationBell />
+          {/* Mobilde zil üst barda duruyor; burada yerine kapatma butonu var. */}
+          <button
+            onClick={() => setNavOpen(false)}
+            aria-label="Menüyü kapat"
+            className="-mr-1 rounded p-1 text-sidebar-muted transition-colors hover:bg-white/10 hover:text-white md:hidden"
+          >
+            <X size={20} strokeWidth={2} />
+          </button>
+          <div className="hidden md:block">
+            <NotificationBell />
+          </div>
         </div>
 
         {/* Hızlı menü arama */}
@@ -242,18 +330,33 @@ export default function DashboardLayout() {
               </div>
             </div>
           </div>
-          <button
-            onClick={logout}
-            className="flex w-full items-center justify-center gap-2 rounded bg-white/10 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
-          >
-            <LogOut size={16} strokeWidth={2} />
-            Çıkış Yap
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPwdOpen(true)}
+              className="flex flex-1 items-center justify-center gap-2 rounded bg-white/10 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
+              title="Şifremi Değiştir"
+            >
+              <KeyRound size={16} strokeWidth={2} />
+              Şifre
+            </button>
+            <button
+              onClick={logout}
+              className="flex flex-1 items-center justify-center gap-2 rounded bg-white/10 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20"
+            >
+              <LogOut size={16} strokeWidth={2} />
+              Çıkış
+            </button>
+          </div>
         </div>
       </aside>
 
-      {/* İçerik */}
-      <main className="flex-1 overflow-auto bg-surface">
+      {pwdOpen && <ChangePasswordModal onClose={() => setPwdOpen(false)} />}
+
+      {/* İçerik — mobilde sabit üst barın (h-14) altından başlar.
+          min-w-0: flex çocuğu varsayılan olarak içeriğinden küçülemez; bu
+          olmadan geniş bir tablo tüm sayfayı yatay kaydırtır (asıl "sıkışma"
+          hissinin sebeplerinden). */}
+      <main className="min-w-0 flex-1 overflow-auto bg-surface pt-14 md:pt-0">
         <Outlet />
       </main>
 

@@ -85,8 +85,8 @@ export default function MusterilerPage() {
               className="w-full bg-transparent py-2 text-sm outline-none"
             />
           </div>
-          <div className="overflow-hidden rounded-lg border border-line bg-surface-card">
-            <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto rounded-lg border border-line bg-surface-card">
+            <table className="w-full min-w-[34rem] text-left text-sm">
               <thead className="border-b border-line text-xs uppercase tracking-wide text-muted">
                 <tr>
                   <th className="px-4 py-3">Müşteri</th>

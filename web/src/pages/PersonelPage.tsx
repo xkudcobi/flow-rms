@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, Printer, Trash2, Trophy } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Plus, Printer, Trash2, Trophy } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -13,7 +13,7 @@ import {
 import { api } from '../api/client';
 import Modal from '../components/Modal';
 import { Button, Field, Input, Select } from '../components/ui';
-import { esc, printHTML } from '../utils/export';
+import { downloadCSV, esc, printHTML } from '../utils/export';
 
 interface Shift {
   id: string;
@@ -28,10 +28,15 @@ interface Shift {
 interface Perf {
   userId: string;
   userName: string;
+  role?: string;
   orders: number;
   revenue: number;
   tips: number;
   avgTicket: number;
+  itemsSold: number;
+  itemRevenue: number;
+  cancels: number;
+  treats: number;
 }
 interface User {
   id: string;
@@ -59,29 +64,38 @@ function addDays(str: string, n: number): string {
   return ymd(d);
 }
 
+const TAB_META = {
+  vardiya: { label: 'Vardiya Planı', icon: CalendarDays },
+  performans: { label: 'Performans', icon: Trophy },
+  mesai: { label: 'Mesai', icon: Clock },
+} as const;
+
 export default function PersonelPage() {
-  const [tab, setTab] = useState<'vardiya' | 'performans'>('vardiya');
+  const [tab, setTab] = useState<'vardiya' | 'performans' | 'mesai'>('vardiya');
   return (
     <div className="p-6">
       <h1 className="mb-1 text-2xl font-bold text-ink">Personel</h1>
-      <p className="mb-5 text-sm text-muted">Vardiya planlama ve garson performansı</p>
+      <p className="mb-5 text-sm text-muted">Vardiya planlama, performans ve mesai takibi</p>
 
       <div data-tour="personel-tabs" className="mb-5 inline-flex rounded-lg border border-line bg-surface-card p-1">
-        {(['vardiya', 'performans'] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition ${
-              tab === t ? 'bg-brand text-white' : 'text-muted hover:text-ink'
-            }`}
-          >
-            {t === 'vardiya' ? <CalendarDays size={15} /> : <Trophy size={15} />}
-            {t === 'vardiya' ? 'Vardiya Planı' : 'Performans'}
-          </button>
-        ))}
+        {(['vardiya', 'performans', 'mesai'] as const).map((t) => {
+          const Icon = TAB_META[t].icon;
+          return (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                tab === t ? 'bg-brand text-white' : 'text-muted hover:text-ink'
+              }`}
+            >
+              <Icon size={15} />
+              {TAB_META[t].label}
+            </button>
+          );
+        })}
       </div>
 
-      {tab === 'vardiya' ? <VardiyaTab /> : <PerformansTab />}
+      {tab === 'vardiya' ? <VardiyaTab /> : tab === 'performans' ? <PerformansTab /> : <MesaiTab />}
     </div>
   );
 }
@@ -337,6 +351,56 @@ function PerformansTab() {
   const totalTips = rows.reduce((s, r) => s + r.tips, 0);
   const chartData = rows.map((r) => ({ name: r.userName, ciro: r.revenue }));
 
+  const HEADERS = [
+    'Personel',
+    'Rol',
+    'Adisyon',
+    'Ciro',
+    'Ort. Adisyon',
+    'Sattığı Kalem',
+    'Kalem Cirosu',
+    'İptal',
+    'İkram',
+    'Bahşiş',
+  ];
+  function rowCells(r: Perf): (string | number)[] {
+    return [
+      r.userName,
+      r.role || '',
+      r.orders,
+      r.revenue,
+      r.avgTicket,
+      r.itemsSold,
+      r.itemRevenue,
+      r.cancels,
+      r.treats,
+      r.tips,
+    ];
+  }
+  function exportCSV() {
+    downloadCSV(
+      `personel-performans_${from}_${to}`,
+      HEADERS,
+      rows.map((r) => rowCells(r).map(String)),
+    );
+  }
+  function exportPDF() {
+    const body = rows
+      .map(
+        (r) =>
+          `<tr>${rowCells(r)
+            .map((c, i) => `<td${i >= 2 ? ' style="text-align:right"' : ''}>${esc(String(c))}</td>`)
+            .join('')}</tr>`,
+      )
+      .join('');
+    printHTML(
+      `Personel Performansı ${from} — ${to}`,
+      `<h1>Personel Performansı</h1><p>${from} — ${to}</p>
+       <table><thead><tr>${HEADERS.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead>
+       <tbody>${body}</tbody></table>`,
+    );
+  }
+
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -346,6 +410,12 @@ function PerformansTab() {
         <Field label="Bitiş">
           <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         </Field>
+        {rows.length > 0 && (
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={exportCSV}>CSV</Button>
+            <Button variant="secondary" onClick={exportPDF}>PDF</Button>
+          </div>
+        )}
         <div className="ml-auto flex gap-6 text-sm">
           <div>
             <div className="text-xs uppercase text-muted">Toplam Ciro</div>
@@ -387,8 +457,8 @@ function PerformansTab() {
             </ResponsiveContainer>
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-line bg-surface-card">
-            <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto rounded-lg border border-line bg-surface-card">
+            <table className="w-full min-w-[34rem] text-left text-sm">
               <thead className="border-b border-line text-xs uppercase tracking-wide text-muted">
                 <tr>
                   <th className="px-4 py-3">#</th>
@@ -396,6 +466,9 @@ function PerformansTab() {
                   <th className="px-4 py-3 text-right">Adisyon</th>
                   <th className="px-4 py-3 text-right">Ciro</th>
                   <th className="px-4 py-3 text-right">Ort. Adisyon</th>
+                  <th className="px-4 py-3 text-right">Kalem</th>
+                  <th className="px-4 py-3 text-right">Kalem Cirosu</th>
+                  <th className="px-4 py-3 text-right">İptal/İkram</th>
                   <th className="px-4 py-3 text-right">Bahşiş</th>
                 </tr>
               </thead>
@@ -405,11 +478,165 @@ function PerformansTab() {
                     <td className="px-4 py-3 text-muted">
                       {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
                     </td>
-                    <td className="px-4 py-3 font-medium text-ink">{r.userName}</td>
+                    <td className="px-4 py-3 font-medium text-ink">
+                      {r.userName}
+                      {r.role && <span className="ml-1 text-xs text-faint">({r.role})</span>}
+                    </td>
                     <td className="px-4 py-3 text-right">{r.orders}</td>
                     <td className="px-4 py-3 text-right font-semibold text-ink">{tl(r.revenue)}</td>
                     <td className="px-4 py-3 text-right text-muted">{tl(r.avgTicket)}</td>
+                    <td className="px-4 py-3 text-right text-muted">{r.itemsSold || '—'}</td>
+                    <td className="px-4 py-3 text-right text-muted">{r.itemRevenue > 0 ? tl(r.itemRevenue) : '—'}</td>
+                    <td className="px-4 py-3 text-right text-muted">
+                      {r.cancels || r.treats ? (
+                        <span className={r.cancels ? 'text-danger' : ''}>
+                          {r.cancels}/{r.treats}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right font-medium text-success">{r.tips > 0 ? tl(r.tips) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+interface AttRecord {
+  id: string;
+  userName: string;
+  clockIn: string;
+  clockOut?: string | null;
+  workedMinutes?: number | null;
+  source: string;
+}
+interface AttTotal {
+  userId: string;
+  userName: string;
+  minutes: number;
+  hours: number;
+  days: number;
+  open: number;
+}
+
+function fmtDur(min?: number | null) {
+  if (min == null) return '—';
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${h}s ${m}dk`;
+}
+function fmtDT(s?: string | null) {
+  return s
+    ? new Date(s).toLocaleString('tr-TR', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '—';
+}
+
+function MesaiTab() {
+  const today = ymd(new Date());
+  const monthAgo = addDays(today, -30);
+  const [from, setFrom] = useState(monthAgo);
+  const [to, setTo] = useState(today);
+  const [records, setRecords] = useState<AttRecord[]>([]);
+  const [totals, setTotals] = useState<AttTotal[]>([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api
+      .get<{ records: AttRecord[]; totals: AttTotal[] }>(
+        `/attendance?from=${from}&to=${to}`,
+      )
+      .then((r) => {
+        setRecords(r.records);
+        setTotals(r.totals);
+      })
+      .catch((e) => setError(e.message));
+  }, [from, to]);
+
+  function exportCSV() {
+    downloadCSV(
+      `mesai_${from}_${to}`,
+      ['Personel', 'Giriş', 'Çıkış', 'Süre (dk)', 'Kaynak'],
+      records.map((r) => [
+        r.userName,
+        fmtDT(r.clockIn),
+        fmtDT(r.clockOut),
+        String(r.workedMinutes ?? ''),
+        r.source,
+      ]),
+    );
+  }
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <Field label="Başlangıç">
+          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </Field>
+        <Field label="Bitiş">
+          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+        </Field>
+        {records.length > 0 && (
+          <Button variant="secondary" onClick={exportCSV}>CSV</Button>
+        )}
+      </div>
+
+      {error && <p className="mb-3 text-danger">{error}</p>}
+
+      {totals.length === 0 ? (
+        <div className="rounded-lg border border-line bg-surface-card p-8 text-center text-faint">
+          Bu aralıkta mesai kaydı yok. (Ayarlar → "Personel Giriş/Çıkış Takip QR"
+          açık olmalı ve personel QR okutmuş olmalı.)
+        </div>
+      ) : (
+        <>
+          <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {totals.map((t) => (
+              <div key={t.userId} className="rounded-lg border border-line bg-surface-card p-4">
+                <div className="font-medium text-ink">{t.userName}</div>
+                <div className="mt-1 font-display text-2xl font-bold text-brand-dark">
+                  {t.hours} <span className="text-sm font-normal text-muted">saat</span>
+                </div>
+                <div className="mt-1 text-xs text-muted">
+                  {t.days} kayıt{t.open > 0 ? ` · ${t.open} açık` : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="overflow-x-auto rounded-lg border border-line bg-surface-card">
+            <table className="w-full min-w-[34rem] text-left text-sm">
+              <thead className="border-b border-line text-xs uppercase tracking-wide text-muted">
+                <tr>
+                  <th className="px-4 py-3">Personel</th>
+                  <th className="px-4 py-3">Giriş</th>
+                  <th className="px-4 py-3">Çıkış</th>
+                  <th className="px-4 py-3 text-right">Süre</th>
+                </tr>
+              </thead>
+              <tbody>
+                {records.map((r) => (
+                  <tr key={r.id} className="border-b border-line last:border-0">
+                    <td className="px-4 py-3 font-medium text-ink">{r.userName}</td>
+                    <td className="px-4 py-3 text-muted">{fmtDT(r.clockIn)}</td>
+                    <td className="px-4 py-3 text-muted">
+                      {r.clockOut ? (
+                        fmtDT(r.clockOut)
+                      ) : (
+                        <span className="text-success">mesaide</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">{fmtDur(r.workedMinutes)}</td>
                   </tr>
                 ))}
               </tbody>

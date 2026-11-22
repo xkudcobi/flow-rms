@@ -229,4 +229,90 @@ export class ReportsService {
       cashIn,
     };
   }
+
+  // İki tür maliyet raporu (tarih aralığı; yoksa bu ay başından bugüne):
+  //  A) Saf: yalnız ürün satış geliri + mal/stok alışları.
+  //  B) Toplam: + personel, temizlik, demirbaş, genel/diğer giderler.
+  // Kaynaklar: kapanan adisyon (gelir), Purchase (kategori bazlı alış/gider),
+  // CashMovement CIKIS (personel + nakit giderler). Alış zaten Purchase'ta
+  // sayıldığı için nakit tarafında ALIS/TEDARIKCI_ODEME/PARA_USTU hariç tutulur.
+  async costReport(fromStr?: string, toStr?: string) {
+    const now = new Date();
+    const start = fromStr
+      ? new Date(fromStr + 'T00:00:00')
+      : new Date(now.getFullYear(), now.getMonth(), 1);
+    const endBase = toStr ? new Date(toStr + 'T00:00:00') : now;
+    const end = new Date(
+      endBase.getFullYear(),
+      endBase.getMonth(),
+      endBase.getDate(),
+    );
+    end.setDate(end.getDate() + 1); // bitiş günü dahil
+    const range = { gte: start, lt: end };
+
+    const [closed, purchases, movements] = await Promise.all([
+      this.prisma.order.findMany({
+        where: { status: 'KAPANDI', closedAt: range },
+        include: { items: true },
+      }),
+      this.prisma.purchase.findMany({ where: { invoiceDate: range } }),
+      this.prisma.cashMovement.findMany({
+        where: { type: 'CIKIS', createdAt: range },
+      }),
+    ]);
+
+    const revenue = round2(closed.reduce((s, o) => s + orderNet(o).net, 0));
+
+    // Alışlar kategoriye göre (grandTotal = KDV dahil gerçek maliyet).
+    const byCat: Record<string, number> = {};
+    for (const p of purchases) {
+      const c = (p.category || 'DIGER').toUpperCase();
+      byCat[c] = round2((byCat[c] || 0) + (p.grandTotal || 0));
+    }
+    const sumCat = (...cats: string[]) =>
+      round2(cats.reduce((s, c) => s + (byCat[c] || 0), 0));
+    const goods = sumCat('GIDA', 'ICECEK', 'AMBALAJ'); // satılan mal/stok
+    const cleaning = sumCat('TEMIZLIK');
+    const fixtures = sumCat('DEMIRBAS');
+    const generalPurchase = sumCat('GENEL_GIDER', 'DIGER');
+
+    // Nakit giderleri (personel + genel; alış/tedarikçi hariç → çift sayma yok).
+    const cash: Record<string, number> = {};
+    for (const m of movements) {
+      const c = (m.category || 'DIGER').toUpperCase();
+      cash[c] = round2((cash[c] || 0) + m.amount);
+    }
+    const personnel = round2(cash['PERSONEL'] || 0);
+    const otherCash = round2((cash['GIDER'] || 0) + (cash['DIGER'] || 0));
+
+    const reportA = {
+      title: 'Ürün & Stok (saf)',
+      revenue,
+      stockCost: goods,
+      gross: round2(revenue - goods),
+    };
+
+    const items = [
+      { label: 'Mal / Stok Alışı', amount: goods },
+      { label: 'Personel', amount: personnel },
+      { label: 'Temizlik', amount: cleaning },
+      { label: 'Demirbaş', amount: fixtures },
+      { label: 'Genel Gider (alış)', amount: generalPurchase },
+      { label: 'Diğer Nakit Gider', amount: otherCash },
+    ].filter((x) => x.amount > 0);
+    const totalCost = round2(items.reduce((s, x) => s + x.amount, 0));
+    const reportB = {
+      title: 'Toplam İşletme Maliyeti',
+      revenue,
+      items,
+      totalCost,
+      net: round2(revenue - totalCost),
+    };
+
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const endLabel = new Date(end);
+    endLabel.setDate(endLabel.getDate() - 1);
+    return { from: fmt(start), to: fmt(endLabel), reportA, reportB };
+  }
 }

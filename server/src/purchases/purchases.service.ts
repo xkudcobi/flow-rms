@@ -13,6 +13,9 @@ interface PurchaseItemInput {
   unit?: string;
   unitPrice: number;
   vatRate?: number;
+  // İzlenebilirlik (perishable kalemlerde): menşei + SKT
+  origin?: string;
+  expiryDate?: string;
 }
 interface PurchaseInput {
   supplierId?: string;
@@ -53,6 +56,8 @@ export class PurchasesService {
         lineNet: net,
         lineVat: vat,
         lineTotal: round2(net + vat),
+        origin: it.origin || null,
+        expiryDate: it.expiryDate ? new Date(it.expiryDate) : null,
       };
     });
     const subtotal = round2(computed.reduce((s, i) => s + i.lineNet, 0));
@@ -77,8 +82,10 @@ export class PurchasesService {
       include: { items: true, supplier: true },
     });
 
-    // Stoğa bağlı kalemleri stoğa gir + maliyet güncelle.
-    for (const it of computed) {
+    // Stoğa bağlı kalemleri stoğa gir + maliyet güncelle. purchase.items üzerinden
+    // ilerleriz: parti (StockLot) oluşturulurken izlenebilirlik alanları + oluşan
+    // PurchaseItem id'si de aktarılsın.
+    for (const it of purchase.items) {
       if (it.stockItemId) {
         await this.stock
           .receiveStock(
@@ -86,6 +93,13 @@ export class PurchasesService {
             it.quantity,
             it.unitPrice,
             `Alış${input.invoiceNo ? ' #' + input.invoiceNo : ''}`,
+            {
+              origin: it.origin,
+              expiryDate: it.expiryDate,
+              supplierId: purchase.supplierId,
+              supplierName: purchase.supplier?.name ?? null,
+              purchaseItemId: it.id,
+            },
           )
           .catch(() => undefined);
       }

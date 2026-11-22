@@ -10,6 +10,9 @@ export interface Notification {
   message: string;
   page: string; // yönlenecek sayfa anahtarı (nav 'to' ile eşleşir, /'siz)
   roles: Role[]; // bu bildirimi görebilecek roller
+  // Kişiye özel hedefli bildirim (ör. atanan görev). Doluysa yalnızca bu
+  // kullanıcılar görür; roles yerine/ek olarak değerlendirilir.
+  userIds?: string[];
   at: string;
 }
 
@@ -24,10 +27,16 @@ export class NotificationsService {
     private readonly stock: StockService,
   ) {}
 
-  // Kullanıcının rolüne göre güncel bildirimler + nav rozet sayıları.
-  async snapshot(role: Role) {
+  // Kullanıcının rolüne (ve kişiye özel hedefine) göre güncel bildirimler.
+  async snapshot(role: Role, userId?: string) {
     const all = await this.collect();
-    const items = all.filter((n) => n.roles.includes(role));
+    const items = all.filter((n) => {
+      // Kişiye özel hedef varsa yalnızca hedeflenen kullanıcı görür.
+      if (n.userIds && n.userIds.length) {
+        return !!userId && n.userIds.includes(userId);
+      }
+      return n.roles.includes(role);
+    });
     // Nav rozetleri: sayfa bazında bildirim sayısı (kırmızı nokta için).
     const badges: Record<string, number> = {};
     for (const n of items) badges[n.page] = (badges[n.page] || 0) + 1;
@@ -96,6 +105,29 @@ export class NotificationsService {
       /* stok modülü sorunluysa atla */
     }
 
+    // 3b) SKT yaklaşan/geçen partiler (izlenebilirlik).
+    try {
+      const expiring = await this.stock.expiringLots(3);
+      for (const l of expiring) {
+        const past = l.daysLeft != null && l.daysLeft <= 0;
+        out.push({
+          id: `expiry:${l.id}`,
+          severity: past ? 'danger' : 'warning',
+          title: past ? 'SKT geçti' : 'SKT yaklaşıyor',
+          message: `${l.stockItemName}: ${l.remainingQty} ${l.unit} — ${
+            past
+              ? 'süresi doldu'
+              : `${l.daysLeft} gün kaldı`
+          }`,
+          page: 'stok',
+          roles: [ROLES.PATRON, ROLES.MUDUR, ROLES.MUTFAK],
+          at: l.expiryDate ? new Date(l.expiryDate).toISOString() : new Date().toISOString(),
+        });
+      }
+    } catch {
+      /* parti/SKT verisi yoksa atla */
+    }
+
     // 4) Yeni/okunmamış Google yorumları (özellikle düşük puan).
     const unseen = await this.prisma.googleReview.findMany({
       where: { seen: false },
@@ -138,6 +170,82 @@ export class NotificationsService {
       }
     } catch {
       /* rezervasyon alanları farklıysa atla */
+    }
+
+    // 6) Açık görevler — atanan kişiye (veya grubun üyelerine) hedefli.
+    try {
+      const tasks = await this.prisma.task.findMany({
+        where: { status: 'ACIK' },
+        include: { assigneeGroup: { include: { members: true } } },
+      });
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+      for (const t of tasks) {
+        // Hedef kullanıcı id'leri: doğrudan atanan veya grup üyeleri.
+        const userIds =
+          t.assigneeType === 'GROUP'
+            ? (t.assigneeGroup?.members ?? []).map((m) => m.userId)
+            : t.assigneeUserId
+              ? [t.assigneeUserId]
+              : [];
+        if (!userIds.length) continue;
+        const overdue = !!t.dueDate && new Date(t.dueDate).getTime() < now;
+        const dueSoon = !!t.dueDate && new Date(t.dueDate) <= endOfToday;
+        out.push({
+          id: `task:${t.id}`,
+          severity: overdue ? 'warning' : 'info',
+          title: overdue ? 'Geciken görev' : 'Görev',
+          message: t.dueDate
+            ? `${t.title}${dueSoon ? ' — bugün' : ''}`
+            : t.title,
+          page: 'gorevler',
+          roles: [],
+          userIds,
+          at: new Date(t.dueDate ?? t.createdAt).toISOString(),
+        });
+      }
+    } catch {
+      /* görev tablosu yoksa atla */
+    }
+
+    // 7) Onaylanan personel tavsiyeleri — hedef role/kişiye/gruba bildir (son 3 gün).
+    try {
+      const since = new Date(now - 3 * 24 * 60 * 60000);
+      const recos = await this.prisma.staffRecommendation.findMany({
+        where: { status: 'ONAYLANDI', approvedAt: { gte: since } },
+      });
+      // Grup hedefleri için üye listesi (tek seferde).
+      const groupIds = recos
+        .filter((r) => r.targetType === 'GROUP' && r.targetGroupId)
+        .map((r) => r.targetGroupId as string);
+      const members = groupIds.length
+        ? await this.prisma.staffGroupMember.findMany({
+            where: { groupId: { in: groupIds } },
+            select: { groupId: true, userId: true },
+          })
+        : [];
+      for (const r of recos) {
+        const base = {
+          id: `reco:${r.id}`,
+          severity: (r.severity as Notification['severity']) || 'info',
+          title: 'Yeni tavsiye',
+          message: r.title,
+          page: 'tavsiyeler',
+          at: new Date(r.approvedAt ?? r.createdAt).toISOString(),
+        };
+        if (r.targetType === 'ROLE' && r.targetRole) {
+          out.push({ ...base, roles: [r.targetRole as Role] });
+        } else if (r.targetType === 'USER' && r.targetUserId) {
+          out.push({ ...base, roles: [], userIds: [r.targetUserId] });
+        } else if (r.targetType === 'GROUP' && r.targetGroupId) {
+          const uids = members
+            .filter((m) => m.groupId === r.targetGroupId)
+            .map((m) => m.userId);
+          if (uids.length) out.push({ ...base, roles: [], userIds: uids });
+        }
+      }
+    } catch {
+      /* tavsiye tablosu yoksa atla */
     }
 
     return out;

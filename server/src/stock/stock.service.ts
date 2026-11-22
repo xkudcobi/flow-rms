@@ -27,15 +27,24 @@ export class StockService {
   createItem(data: {
     name: string;
     unit?: string;
+    group?: string | null;
     quantity?: number;
     criticalLevel?: number;
+    perishable?: boolean;
   }) {
     return this.prisma.stockItem.create({ data });
   }
 
   async updateItem(
     id: string,
-    data: { name?: string; unit?: string; criticalLevel?: number; active?: boolean },
+    data: {
+      name?: string;
+      unit?: string;
+      group?: string | null;
+      criticalLevel?: number;
+      active?: boolean;
+      perishable?: boolean;
+    },
   ) {
     await this.getItemOrThrow(id);
     return this.prisma.stockItem.update({ where: { id }, data });
@@ -118,12 +127,21 @@ export class StockService {
   }
 
   // Alış faturasından stok girişi: miktarı ekler, son birim maliyeti günceller,
-  // GIRIS hareketi kaydeder. PurchasesService çağırır.
+  // GIRIS hareketi kaydeder. PurchasesService çağırır. Kalem perishable ise (veya
+  // SKT/menşei verilmişse) ayrıca bir parti (StockLot) oluşturur ve GIRIS hareketini
+  // partiye bağlar — izlenebilirlik + FIFO tüketim için.
   async receiveStock(
     itemId: string,
     quantity: number,
     unitCost?: number,
     note?: string,
+    lot?: {
+      origin?: string | null;
+      expiryDate?: Date | string | null;
+      supplierId?: string | null;
+      supplierName?: string | null;
+      purchaseItemId?: string | null;
+    },
   ) {
     const item = await this.prisma.stockItem.update({
       where: { id: itemId },
@@ -132,12 +150,36 @@ export class StockService {
         ...(unitCost != null ? { cost: unitCost } : {}),
       },
     });
+
+    const expiry = lot?.expiryDate ? new Date(lot.expiryDate) : null;
+    const shouldTrack = item.perishable || !!expiry || !!lot?.origin;
+
+    let lotId: string | undefined;
+    if (shouldTrack) {
+      const created = await this.prisma.stockLot.create({
+        data: {
+          stockItemId: itemId,
+          purchaseItemId: lot?.purchaseItemId ?? null,
+          supplierId: lot?.supplierId ?? null,
+          supplierName: lot?.supplierName ?? null,
+          origin: lot?.origin ?? null,
+          expiryDate: expiry,
+          initialQty: quantity,
+          remainingQty: quantity,
+          unitCost: unitCost ?? null,
+          note: note ?? 'Alış',
+        },
+      });
+      lotId = created.id;
+    }
+
     await this.prisma.stockMovement.create({
       data: {
         stockItemId: itemId,
         type: 'GIRIS',
         quantity,
         note: note ?? 'Alış',
+        lotId,
       },
     });
     return item;
@@ -156,14 +198,8 @@ export class StockService {
         include: { stockItem: true, product: true },
       });
       for (const r of recipe) {
-        const delta = round3(-r.quantity * it.quantity);
-        await this.applyDelta(
-          r.stockItemId,
-          delta,
-          'CIKIS',
-          undefined,
-          orderId,
-        );
+        const qty = round3(r.quantity * it.quantity);
+        await this.consume(r.stockItemId, qty, orderId, r.stockItem?.perishable);
         // Oto-hafıza: "hangi ürün hangi stoğu eritti" bağını öğren (ağırlıklı).
         if (r.product?.name && r.stockItem?.name)
           edges.push({
@@ -176,6 +212,40 @@ export class StockService {
     this.graphMem.observe(edges);
   }
 
+  // Belirli miktarı stoktan düşer. Perishable kalemlerde FIFO: son kullanma
+  // tarihi en yakın partiden başlar; her parti için ayrı CIKIS hareketi yazar
+  // ve remainingQty'yi azaltır (izlenebilirlik). Değilse tek hareketle düşer.
+  private async consume(
+    itemId: string,
+    qty: number,
+    orderId?: string,
+    perishable?: boolean,
+  ) {
+    if (!perishable) {
+      await this.applyDelta(itemId, -qty, 'CIKIS', undefined, orderId);
+      return;
+    }
+    let remaining = qty;
+    const lots = await this.prisma.stockLot.findMany({
+      where: { stockItemId: itemId, active: true, remainingQty: { gt: 0 } },
+      orderBy: [{ expiryDate: 'asc' }, { receivedAt: 'asc' }],
+    });
+    for (const lot of lots) {
+      if (remaining <= 0) break;
+      const take = Math.min(lot.remainingQty, remaining);
+      await this.prisma.stockLot.update({
+        where: { id: lot.id },
+        data: { remainingQty: round3(lot.remainingQty - take) },
+      });
+      await this.applyDelta(itemId, -take, 'CIKIS', undefined, orderId, undefined, lot.id);
+      remaining = round3(remaining - take);
+    }
+    // Parti yetmediyse kalanı partisiz düş (miktar tutarlılığı korunur).
+    if (remaining > 0) {
+      await this.applyDelta(itemId, -remaining, 'CIKIS', undefined, orderId);
+    }
+  }
+
   // --- yardımcılar ---
   private async applyDelta(
     itemId: string,
@@ -184,6 +254,7 @@ export class StockService {
     note?: string,
     orderId?: string,
     userId?: string,
+    lotId?: string,
   ) {
     const item = await this.prisma.stockItem.update({
       where: { id: itemId },
@@ -197,6 +268,7 @@ export class StockService {
         note,
         orderId,
         createdById: userId,
+        lotId,
       },
     });
     return { ...item, isLow: item.quantity <= item.criticalLevel };
@@ -207,4 +279,109 @@ export class StockService {
     if (!i) throw new NotFoundException('Stok kalemi bulunamadı');
     return i;
   }
+
+  // --- İzlenebilirlik / SKT (Faz 2A) -----------------------------------------
+
+  // Aktif partiler (kalanı olan). Opsiyonel stok kalemine göre filtre.
+  async listLots(stockItemId?: string) {
+    const lots = await this.prisma.stockLot.findMany({
+      where: {
+        active: true,
+        remainingQty: { gt: 0 },
+        ...(stockItemId ? { stockItemId } : {}),
+      },
+      include: { stockItem: { select: { name: true, unit: true } } },
+      orderBy: [{ expiryDate: 'asc' }, { receivedAt: 'asc' }],
+    });
+    return lots.map((l) => ({
+      id: l.id,
+      stockItemId: l.stockItemId,
+      stockItemName: l.stockItem.name,
+      unit: l.stockItem.unit,
+      origin: l.origin,
+      supplierName: l.supplierName,
+      receivedAt: l.receivedAt,
+      expiryDate: l.expiryDate,
+      initialQty: l.initialQty,
+      remainingQty: l.remainingQty,
+      daysLeft: l.expiryDate ? daysUntil(l.expiryDate) : null,
+    }));
+  }
+
+  // SKT'ye kalan günü ≤ days olan (veya geçmiş) partiler. Bildirim ve tavsiye
+  // motoruna beslenir.
+  async expiringLots(days = 7) {
+    const limit = new Date();
+    limit.setDate(limit.getDate() + days);
+    const lots = await this.prisma.stockLot.findMany({
+      where: {
+        active: true,
+        remainingQty: { gt: 0 },
+        expiryDate: { not: null, lte: limit },
+      },
+      include: { stockItem: { select: { name: true, unit: true } } },
+      orderBy: { expiryDate: 'asc' },
+    });
+    return lots.map((l) => ({
+      id: l.id,
+      stockItemId: l.stockItemId,
+      stockItemName: l.stockItem.name,
+      unit: l.stockItem.unit,
+      remainingQty: l.remainingQty,
+      expiryDate: l.expiryDate,
+      daysLeft: l.expiryDate ? daysUntil(l.expiryDate) : null,
+    }));
+  }
+
+  // İzlenebilirlik raporu: partiler + o partiden yapılan tüketim hareketleri
+  // (hangi siparişlerde kullanıldığı). from/to giriş tarihine göre filtreler.
+  async traceability(filter: { stockItemId?: string; from?: string; to?: string }) {
+    const where: any = {};
+    if (filter.stockItemId) where.stockItemId = filter.stockItemId;
+    if (filter.from || filter.to) {
+      where.receivedAt = {};
+      if (filter.from) where.receivedAt.gte = new Date(filter.from + 'T00:00:00');
+      if (filter.to) {
+        const t = new Date(filter.to + 'T00:00:00');
+        t.setDate(t.getDate() + 1);
+        where.receivedAt.lt = t;
+      }
+    }
+    const lots = await this.prisma.stockLot.findMany({
+      where,
+      include: {
+        stockItem: { select: { name: true, unit: true } },
+        movements: {
+          where: { type: 'CIKIS' },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+      orderBy: [{ receivedAt: 'desc' }],
+      take: 500,
+    });
+    return lots.map((l) => ({
+      id: l.id,
+      stockItemName: l.stockItem.name,
+      unit: l.stockItem.unit,
+      origin: l.origin,
+      supplierName: l.supplierName,
+      receivedAt: l.receivedAt,
+      expiryDate: l.expiryDate,
+      initialQty: l.initialQty,
+      remainingQty: l.remainingQty,
+      consumed: round3(l.initialQty - l.remainingQty),
+      usedIn: l.movements.map((m) => ({
+        at: m.createdAt,
+        quantity: Math.abs(m.quantity),
+        orderId: m.orderId,
+      })),
+    }));
+  }
+}
+
+// SKT'ye kalan gün sayısı (bugünden). Negatif = geçmiş.
+function daysUntil(d: Date): number {
+  const now = new Date();
+  const ms = new Date(d).getTime() - now.getTime();
+  return Math.ceil(ms / (24 * 60 * 60 * 1000));
 }

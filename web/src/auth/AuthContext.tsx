@@ -12,6 +12,8 @@ export interface AuthUser {
   username: string;
   fullName: string;
   role: 'PATRON' | 'MUDUR' | 'KASIYER' | 'GARSON' | 'MUTFAK';
+  // Rolün varsayılan sayfalarına EK olarak patronun açtığı sayfa anahtarları.
+  extraPages?: string[];
 }
 
 interface AuthContextValue {

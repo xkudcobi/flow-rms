@@ -22,8 +22,17 @@ model User {
   // Rol: PATRON | MUDUR | KASIYER | GARSON | MUTFAK
   role      String   @default("GARSON")
   active    Boolean  @default(true)
+  // Rolün varsayılan sayfalarına EK olarak açılan sayfa anahtarları (JSON dizi).
+  // Patron, bir kullanıcıya rolü dışında sayfa erişimi vermek için kullanır.
+  // Örn: '["stok","alislar"]'. Sayfa anahtarları auth/pages.ts'te tanımlı.
+  extraPages String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  staffGroups   StaffGroupMember[]
+  tasksCreated  Task[]             @relation("TaskCreatedBy")
+  tasksAssigned Task[]             @relation("TaskAssignee")
+  attendances   Attendance[]
 }
 
 // --- Menü --------------------------------------------------------------------
@@ -63,16 +72,48 @@ model Product {
 model StockItem {
   id            String          @id @default(cuid())
   name          String
-  // Birim: adet | kg | gr | lt | ml
+  // Birim: adet | kg | gr | lt | ml | cl
   unit          String          @default("adet")
+  // Hammadde grubu (Et Ürünleri, Süt Ürünleri, Kuru Gıda...). Reçete seçicisinde
+  // ve stok listesinde gruplamak için; boş bırakılabilir ("Diğer" sayılır).
+  group         String?
   quantity      Float           @default(0)
   criticalLevel Float           @default(0)
   cost          Float           @default(0) // son alış birim maliyeti (KDV hariç)
+  // İzlenebilirlik/SKT takibi gereken kalem mi? (et, süt, balık, tavuk vb.)
+  // true ise alışta parti (StockLot) oluşturulur ve tüketim FIFO ile partiden düşer.
+  perishable    Boolean         @default(false)
   active        Boolean         @default(true)
   recipeItems   RecipeItem[]
   movements     StockMovement[]
+  lots          StockLot[]
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
+}
+
+// Parti/lot: bir alışta gelen belirli bir grup mal — menşei (alınış yeri),
+// tedarikçi, giriş tarihi, son kullanma tarihi ve kalan miktar. Tarım Bakanlığı
+// izlenebilirliği + yaklaşan SKT uyarısı + FIFO tüketim için.
+model StockLot {
+  id             String          @id @default(cuid())
+  stockItemId    String
+  stockItem      StockItem       @relation(fields: [stockItemId], references: [id])
+  purchaseItemId String? // hangi alış kaleminden geldi (izlenebilirlik)
+  supplierId     String? // tedarikçi cari id (snapshot ad ile birlikte)
+  supplierName   String? // tedarikçi adı snapshot
+  origin         String? // menşei / alınış yeri (ör. "Bolu Tavuk Çiftliği")
+  receivedAt     DateTime        @default(now())
+  expiryDate     DateTime? // son kullanma tarihi
+  initialQty     Float // giren miktar
+  remainingQty   Float // kalan miktar (FIFO tüketimle azalır)
+  unitCost       Float? // birim maliyet (KDV hariç)
+  note           String?
+  active         Boolean         @default(true)
+  movements      StockMovement[]
+  createdAt      DateTime        @default(now())
+
+  @@index([stockItemId])
+  @@index([expiryDate])
 }
 
 // Bir ürünün reçetesi: bir porsiyon satılınca düşülecek hammadde miktarları.
@@ -98,11 +139,15 @@ model StockMovement {
   quantity    Float
   note        String?
   orderId     String?
+  // Hangi partiden çıktı/girdi (izlenebilirlik — perishable kalemlerde dolu).
+  lotId       String?
+  lot         StockLot? @relation(fields: [lotId], references: [id])
   createdById String?
   createdAt   DateTime  @default(now())
 
   @@index([stockItemId])
   @@index([createdAt])
+  @@index([lotId])
 }
 
 // --- Salon & Masa ------------------------------------------------------------
@@ -289,6 +334,12 @@ model BusinessSetting {
   address      String?
   phone        String?
   note         String? // serbest işletme bilgisi (AI'a bağlam: konsept, hedef kitle, kampanya kuralları vb.)
+  // QR'dan sipariş alınsın mı? false ise müşteri menüyü ve kendi adisyonunu
+  // görür, garson çağırabilir — ama sipariş gönderemez (bazı işletmeler
+  // siparişi yalnız garsonla almak ister).
+  qrOrderingEnabled Boolean @default(true)
+  // Personel giriş/çıkış (mesai) QR takibi açık mı? (isteğe bağlı, varsayılan kapalı)
+  attendanceQrEnabled Boolean @default(false)
   // Google yorumları özeti (son senkronizasyondan)
   reviewsRating   Float? // genel Google puanı
   reviewsTotal    Int? // toplam Google yorum sayısı
@@ -437,6 +488,9 @@ model PurchaseItem {
   lineNet     Float // quantity * unitPrice
   lineVat     Float
   lineTotal   Float // net + KDV
+  // İzlenebilirlik alanları (perishable kalemlerde doldurulur → StockLot'a aktarılır)
+  origin      String? // menşei / alınış yeri
+  expiryDate  DateTime? // son kullanma tarihi
 
   @@index([purchaseId])
 }
@@ -467,6 +521,8 @@ model OrderItem {
   quantity     Int      @default(1)
   note         String? // "az pişmiş", "ekstra peynir"...
   station      String   @default("MUTFAK")
+  // Bu kalemi ekleyen (satan) personel — kalem bazlı performans için.
+  addedById    String?
   originLabel  String? // birleştirmede: kalemin hangi masadan geldiği
   // Durum: YENI | HAZIRLANIYOR | HAZIR | SERVIS | IPTAL
   status       String   @default("YENI")
@@ -480,4 +536,131 @@ model OrderItem {
 
   @@index([orderId])
   @@index([status])
+}
+
+// --- Personel Grupları & Görevler (Faz 1B) -----------------------------------
+
+// Personel grubu (Mutfak, Garsonlar, Kasa...). Görev atarken hedef olarak
+// kullanılır; bir kullanıcı birden çok gruba üye olabilir.
+model StaffGroup {
+  id        String             @id @default(cuid())
+  name      String
+  active    Boolean            @default(true)
+  members   StaffGroupMember[]
+  tasks     Task[]             @relation("TaskGroup")
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+}
+
+model StaffGroupMember {
+  id      String     @id @default(cuid())
+  groupId String
+  group   StaffGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User       @relation(fields: [userId], references: [id])
+
+  @@unique([groupId, userId])
+  @@index([userId])
+}
+
+// Görev: kişiye veya gruba atanır. Tekrarlayan görevler recurrence ile işaretlenir;
+// tamamlanınca bir sonraki örnek üretilir (basit, sorgu anında üretim).
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  // Hedef türü: USER | GROUP
+  assigneeType    String
+  assigneeUserId  String?
+  assigneeUser    User?       @relation("TaskAssignee", fields: [assigneeUserId], references: [id])
+  assigneeGroupId String?
+  assigneeGroup   StaffGroup? @relation("TaskGroup", fields: [assigneeGroupId], references: [id])
+  dueDate     DateTime?
+  // Durum: ACIK | TAMAMLANDI | IPTAL
+  status      String   @default("ACIK")
+  // Tekrar kuralı JSON: null | {"freq":"daily"} | {"freq":"weekly","days":[1,3,5]}
+  recurrence  String?
+  // Bu görevin üretildiği şablon (tekrarlayan görev zinciri için)
+  templateId  String?
+  template    TaskTemplate? @relation(fields: [templateId], references: [id])
+  createdById String
+  createdBy   User     @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  completedById String?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([assigneeUserId])
+  @@index([assigneeGroupId])
+  @@index([dueDate])
+}
+
+// Sık kullanılan / kalıcı görev şablonu. Görev eklendikçe useCount artar; sık
+// tekrarlanan başlıklar "listeden seç" olarak sunulur (tekrar yazmaya gerek yok).
+model TaskTemplate {
+  id                  String   @id @default(cuid())
+  title               String   @unique
+  description         String?
+  defaultAssigneeType String? // USER | GROUP
+  defaultAssigneeId   String?
+  recurrence          String?
+  useCount            Int      @default(0)
+  pinned              Boolean  @default(false) // listede öne çıkar (kalıcı görev)
+  tasks               Task[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// --- Personel Tavsiyeleri (Faz 3A) -------------------------------------------
+
+// Role/gruba/kişiye hedefli tavsiye. Otomatik üretilir (ör. SKT yaklaşan ürün →
+// garsonlar önersin) veya patron elle ekler. Patron ONAYLAYINCA hedef personelin
+// bildirimine + "Tavsiyeler" sayfasına düşer.
+model StaffRecommendation {
+  id            String   @id @default(cuid())
+  // Hedef türü: ROLE | USER | GROUP
+  targetType    String
+  targetRole    String?
+  targetUserId  String?
+  targetGroupId String?
+  title         String
+  body          String
+  // Kaynak: AUTO (motor üretti) | MANUAL (patron yazdı)
+  source        String   @default("MANUAL")
+  // info | warning | danger
+  severity      String   @default("info")
+  // Durum: BEKLIYOR | ONAYLANDI | REDDEDILDI
+  status        String   @default("BEKLIYOR")
+  // Otomatik üretimde tekrar üretmemek için tekil anahtar (ör. "expiry:<lotId>").
+  dedupeKey     String?  @unique
+  createdById   String?
+  approvedById  String?
+  approvedAt    DateTime?
+  seenBy        String? // JSON: bildirimi/gören kullanıcı id'leri
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([targetRole])
+}
+
+// --- Personel Mesai (QR giriş/çıkış) (Faz 3B) --------------------------------
+
+// Bir mesai kaydı: giriş (clockIn) ve çıkış (clockOut) damgası. QR okutmayla
+// veya elle oluşturulur. Açık kayıt = clockOut null (halen mesaide).
+model Attendance {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  userName      String // snapshot
+  clockIn       DateTime @default(now())
+  clockOut      DateTime?
+  workedMinutes Int? // clockOut girilince hesaplanır
+  source        String   @default("QR") // QR | MANUAL
+  note          String?
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([clockIn])
 }

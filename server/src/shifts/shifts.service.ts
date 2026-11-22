@@ -79,7 +79,7 @@ export class ShiftsService {
     );
     end.setDate(end.getDate() + 1); // bitiş günü dahil
 
-    const [orders, users] = await Promise.all([
+    const [orders, users, audits] = await Promise.all([
       this.prisma.order.findMany({
         where: { status: 'KAPANDI', closedAt: { gte: start, lt: end } },
         include: { items: true },
@@ -88,33 +88,70 @@ export class ShiftsService {
         where: { active: true },
         select: { id: true, fullName: true, role: true },
       }),
+      this.prisma.auditLog.findMany({
+        where: { createdAt: { gte: start, lt: end }, userId: { not: null } },
+        select: { userId: true, action: true },
+      }),
     ]);
 
     const nameById = new Map(users.map((u) => [u.id, u.fullName]));
-    const agg = new Map<
-      string,
-      {
-        userId: string;
-        userName: string;
-        orders: number;
-        revenue: number;
-        tips: number;
-      }
-    >();
-    for (const o of orders) {
-      const key = o.openedById;
-      const cur =
-        agg.get(key) || {
+    const roleById = new Map(users.map((u) => [u.id, u.role]));
+
+    interface Row {
+      userId: string;
+      userName: string;
+      role: string;
+      orders: number; // açtığı adisyon sayısı
+      revenue: number; // açtığı adisyonların net cirosu
+      tips: number;
+      itemsSold: number; // sattığı (eklediği) kalem adedi
+      itemRevenue: number; // kalem bazlı ciro (kişinin eklediği kalemler)
+      cancels: number; // iptal işlemleri (adisyon/kalem)
+      treats: number; // ikram
+    }
+    const agg = new Map<string, Row>();
+    const ensure = (key: string): Row => {
+      let cur = agg.get(key);
+      if (!cur) {
+        cur = {
           userId: key,
           userName: nameById.get(key) || 'Bilinmeyen',
+          role: roleById.get(key) || '',
           orders: 0,
           revenue: 0,
           tips: 0,
+          itemsSold: 0,
+          itemRevenue: 0,
+          cancels: 0,
+          treats: 0,
         };
-      cur.orders += 1;
-      cur.revenue += orderNet(o);
-      cur.tips += o.tip || 0;
-      agg.set(key, cur);
+        agg.set(key, cur);
+      }
+      return cur;
+    };
+
+    for (const o of orders) {
+      // Adisyonu açan kişi: adisyon sayısı + net ciro + bahşiş.
+      const opener = ensure(o.openedById);
+      opener.orders += 1;
+      opener.revenue += orderNet(o);
+      opener.tips += o.tip || 0;
+
+      // Kalem bazlı: kalemi ekleyen (satan) kişiye ciro + adet.
+      for (const it of o.items) {
+        if (it.status === 'IPTAL') continue;
+        if (!it.addedById) continue;
+        const seller = ensure(it.addedById);
+        seller.itemsSold += it.quantity;
+        seller.itemRevenue += it.unitPrice * it.quantity;
+      }
+    }
+
+    for (const a of audits) {
+      if (!a.userId) continue;
+      const row = ensure(a.userId);
+      if (a.action === 'IPTAL_ADISYON' || a.action === 'IPTAL_KALEM') row.cancels += 1;
+      else if (a.action === 'IKRAM') row.treats += 1;
     }
 
     return [...agg.values()]
@@ -122,6 +159,7 @@ export class ShiftsService {
         ...r,
         revenue: round2(r.revenue),
         tips: round2(r.tips),
+        itemRevenue: round2(r.itemRevenue),
         avgTicket: r.orders ? round2(r.revenue / r.orders) : 0,
       }))
       .sort((a, b) => b.revenue - a.revenue);
