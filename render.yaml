@@ -6,6 +6,7 @@ services:
     runtime: node
     plan: free
     region: frankfurt
+    branch: mobil-ve-ozellikler
     buildCommand: bash scripts/demo/render-build.sh
     startCommand: npm run start
     healthCheckPath: /api/health
